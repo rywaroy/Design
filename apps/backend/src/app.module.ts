@@ -4,12 +4,13 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import configuration from './config/configuration';
+import { validationSchema } from './config/validation';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FileModule } from './modules/file/file.module';
 import { RedisModule } from './modules/redis/redis.module';
-import configuration from './config/configuration';
-import { validationSchema } from './config/validation';
+import { ProjectModule } from './modules/project/project.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { validationSchema } from './config/validation';
     }),
     AuthModule,
     FileModule,
+    ProjectModule,
     RedisModule,
   ],
   controllers: [AppController],
