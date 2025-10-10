@@ -54,7 +54,9 @@ Nexus 是一个基于 NestJS 框架构建的后端应用程序。它提供了一
 │       ├── auth/          # 认证模块
 │       ├── file/          # 文件模块
 │       ├── redis/         # Redis 模块
-│       └── user/          # 用户模块
+│       ├── user/          # 用户模块
+│       ├── project/       # 项目模板管理
+│       └── screen/        # 页面解析与检索
 ├── test/                  # 测试文件
 ├── .env.example           # 环境变量示例文件
 ├── .eslintrc.js           # ESLint 配置文件
@@ -153,6 +155,30 @@ Nexus 是一个基于 NestJS 框架构建的后端应用程序。它提供了一
 
 4.  **API 文档:**
     访问 `http://localhost:3000/api/v1/swagger` 查看 Swagger API 文档。
+
+## 模块说明
+
+### 项目模块（Project Module）
+
+- **数据结构**：`Project` 实体记录跨平台设计模板的基础信息，包括 `platform`、`appName`、`name`、`projectId`（自定义业务 ID）、`appLogoUrl`、预览图数组 `previewScreens` 以及统计字段 `screenCount`、`recommendedCount`。
+- **列表接口**：`GET /api/project`
+  - **查询参数**：`page`、`pageSize`、`platform`（仅 `ios`/`web`）、`appName`（模糊匹配）。
+  - **排序**：默认按 `recommendedCount` 降序，其次按创建时间倒序。
+  - **返回格式**：统一分页响应，主体为 `items`、`total`、`page`、`pageSize`。
+- **使用建议**：当前接口专注于读操作，可结合 `projectId` 与页面模块联动；若新增创建/更新逻辑需同步校验 `projectId` 唯一性。
+
+### 页面模块（Screen Module）
+
+- **数据结构**：`Screen` 实体通过 `projectId` 关联项目，字段包含页面基础信息（`screenId`、`originalUrl`、`url`、`isRecommended`）以及多组解析标签：
+  - 字符串字段：`pageType`/`pageTypeL2`、`appCategory`/`appCategoryL2`、`designSystem`、`type`/`typeL2` 等。
+  - 数组字段：`componentIndex`/`componentIndexL2`、`tagsPrimary`/`tagsPrimaryL2`、`tagsStyle`/`tagsStyleL2`、`tagsComponents`/`tagsComponentsL2`、`designStyle`、`feeling`。
+- **接口一览**
+  1. `GET /api/screen`：根据 `projectId` 返回页面列表，排序优先推荐页面并按创建/更新时间倒序。
+  2. `GET /api/screen/filters`：直接返回 `data/*.json` 中整理好的 L2 标签（例如页面类型、应用分类、组件索引等）以及平台枚举，为前端构建精确筛选项。
+  3. `POST /api/screen/search/precise`：精准搜索，字符串字段需完全匹配，数组字段所有取值都需命中；支持分页。
+  4. `POST /api/screen/search/fuzzy`：模糊搜索，解析字段可传数组；命中字段数占比 ≥ 50% 的结果才返回，并附带 `matchPercentage`；筛选仍遵循推荐优先与时间倒序。
+- **静态标签来源**：`src/modules/screen/data/*.json` 下的多层级结构已汇总常见 L2 标签，无需实时查询数据库即可构建候选项。后续如需支持运营配置，可考虑改写为持久化存储。
+- **拓展示例**：可以结合解析标签批量打标、导出、或为推荐系统提供特征；若要增加新的解析维度，只需在实体、DTO、服务层的匹配逻辑中同步扩展，并更新对应 JSON 数据。
 
 ## config
 

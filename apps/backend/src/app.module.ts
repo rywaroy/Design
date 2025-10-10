@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { FileModule } from './modules/file/file.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ProjectModule } from './modules/project/project.module';
+import { ScreenModule } from './modules/screen/screen.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ProjectModule } from './modules/project/project.module';
     AuthModule,
     FileModule,
     ProjectModule,
+    ScreenModule,
     RedisModule,
   ],
   controllers: [AppController],
