@@ -1,0 +1,5 @@
+/* Tailwind CSS v4 single import */
+@import "tailwindcss";
+
+/* Custom global styles (optional) */
+/* .app-container { @apply mx-auto max-w-7xl p-4; } */

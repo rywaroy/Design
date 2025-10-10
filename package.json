@@ -1,0 +1,12 @@
+{
+  "name": "design",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/** run dev"
+  }
+}
