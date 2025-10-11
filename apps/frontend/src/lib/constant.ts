@@ -1,0 +1,1 @@
+export const RESOURCE_BASE_URL = 'http://design-static.zzh.cool';

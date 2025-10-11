@@ -1,12 +1,16 @@
-export type Platform = 'web' | 'mobile';
+export type Platform = 'ios' | 'web';
 
 export interface Project {
   projectId: string;
   name: string;
-  platform?: Platform;
-  previewScreens?: string[]; // 屏幕预览 URL 列表（可选）
-  screenCount?: number;      // 屏幕数量
-  aiRecommendedCount?: number; // AI 推荐的屏幕数量
+  platform: Platform;
+  appName: string;
+  appLogoUrl?: string;
+  previewScreens: string[];
+  screenCount: number;
+  recommendedCount: number;
+  appTagline?: string;
+  keywords?: string[];
 }
 
 export interface Screen {

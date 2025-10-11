@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { setTokenResolver } from '../lib/http';
+import { setTokenResolver, type ApiResponse } from '../lib/http';
 import {
   login as loginRequest,
   logout as logoutRequest,
   type LoginPayload,
   type LoginResponse,
 } from '../services/auth';
-import type { ApiResponse } from '../lib/http';
+import { getCurrentUser, type UserInfo } from '../services/user';
 
 export interface AuthUser {
   id: string;
@@ -20,6 +20,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   login: (payload: LoginPayload) => Promise<ApiResponse<LoginResponse>>;
   logout: () => Promise<void>;
+  fetchCurrentUser: () => Promise<ApiResponse<UserInfo>>;
   setAuthUser: (user: AuthUser | null) => void;
 }
 
@@ -115,14 +116,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [setAuthUser]);
 
+  const fetchCurrentUser = useCallback(async () => {
+    const stored = readAuthFromStorage();
+    const accessToken = stored?.accessToken ?? user?.accessToken;
+
+    if (!accessToken) {
+      setAuthUser(null);
+      throw new Error('UNAUTHORIZED');
+    }
+
+    try {
+      const response = await getCurrentUser();
+      const info = response.data;
+
+      setAuthUser({
+        accessToken,
+        id: info._id,
+        username: info.username,
+        roles: info.roles ?? [],
+      });
+
+      return response;
+    } catch (error) {
+      setAuthUser(null);
+      throw error;
+    }
+  }, [setAuthUser, user?.accessToken]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       login,
       logout,
+      fetchCurrentUser,
       setAuthUser,
     }),
-    [user, login, logout, setAuthUser],
+    [user, login, logout, fetchCurrentUser, setAuthUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

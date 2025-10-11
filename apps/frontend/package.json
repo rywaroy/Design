@@ -11,6 +11,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@design/shared-types": "workspace:*",
     "antd": "^5.19.1",
     "axios": "^1.12.2",

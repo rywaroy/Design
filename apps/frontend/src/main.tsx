@@ -4,6 +4,8 @@ import { ConfigProvider, App as AntApp } from 'antd';
 import 'antd/dist/reset.css';
 import './index.css';
 import LoginPage from './pages/Login';
+import ProjectPage from './pages/Project';
+import DefaultLayout from './layout/Default';
 import { AuthProvider } from './contexts/AuthContext';
 
 const Root = () => (
@@ -29,7 +31,10 @@ const Root = () => (
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<DefaultLayout />}>
+              <Route path="/" element={<ProjectPage />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>

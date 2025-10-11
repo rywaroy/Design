@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App as AntApp, Button, Form, Input, Typography } from 'antd';
 import type { FormProps } from 'antd';
+import { useLocation, useNavigate } from 'react-router-dom';
 import loginSideImage from '../../assets/login-side.webp';
 import type { LoginPayload } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,9 +12,15 @@ interface LoginFormValues extends LoginPayload {
   remember?: boolean;
 }
 
+const formItemStyle = {
+  borderRadius: 9999,
+};
+
 const LoginPage: React.FC = () => {
   const { message } = AntApp.useApp();
-  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const initialValues = useMemo<LoginFormValues>(
@@ -24,6 +31,14 @@ const LoginPage: React.FC = () => {
     [],
   );
 
+  const redirectPath = (location.state as { from?: string } | undefined)?.from ?? '/';
+
+  useEffect(() => {
+    if (user) {
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate, redirectPath, user]);
+
   const handleFinish: FormProps<LoginFormValues>['onFinish'] = async (values) => {
     setLoading(true);
     try {
@@ -33,6 +48,7 @@ const LoginPage: React.FC = () => {
       });
 
       message.success(response.message || '登录成功');
+      navigate(redirectPath, { replace: true });
     } catch (error) {
       console.error(error);
     } finally {
@@ -77,6 +93,7 @@ const LoginPage: React.FC = () => {
                 placeholder="请输入账号"
                 autoComplete="username"
                 className="h-12 border-gray-200 px-5 text-base"
+                style={formItemStyle}
               />
             </Form.Item>
 
@@ -93,6 +110,7 @@ const LoginPage: React.FC = () => {
                 placeholder="请输入密码"
                 autoComplete="current-password"
                 className="h-12 border-gray-200 px-5 text-base"
+                style={formItemStyle}
               />
             </Form.Item>
 
@@ -100,6 +118,7 @@ const LoginPage: React.FC = () => {
               <Button
                 type="primary"
                 htmlType="submit"
+                shape="round"
                 size="large"
                 loading={loading}
                 className="h-12 w-full text-base font-medium shadow-sm"
