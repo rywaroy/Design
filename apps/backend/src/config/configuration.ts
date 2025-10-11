@@ -28,4 +28,15 @@ export default () => ({
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL,
   },
+  ai: {
+    baseUrl:
+      process.env.AI_API_BASE_URL ||
+      'https://generativelanguage.googleapis.com',
+    apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
+    model:
+      process.env.AI_MODEL ||
+      process.env.OPENAI_MODEL ||
+      'models/gemini-1.5-flash',
+    timeoutMs: parseInt(process.env.AI_API_TIMEOUT_MS) || 20000,
+  },
 });

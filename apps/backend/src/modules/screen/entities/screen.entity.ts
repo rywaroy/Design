@@ -80,6 +80,13 @@ export class Screen {
 
   @Prop({ type: [String], default: [] })
   feeling: string[];
+
+  // timestamps added by @Schema({ timestamps: true })
+  @Prop()
+  createdAt?: Date;
+
+  @Prop()
+  updatedAt?: Date;
 }
 
 export type ScreenDocument = HydratedDocument<Screen>;

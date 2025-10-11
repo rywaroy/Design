@@ -25,6 +25,14 @@ export const validationSchema = Joi.object({
   REDIS_DB: Joi.number().default(0),
 
   // OpenAI
-  OPENAI_API_KEY: Joi.string().required(),
-  OPENAI_MODEL: Joi.string().required(),
+  OPENAI_API_KEY: Joi.string().allow(''),
+  OPENAI_MODEL: Joi.string().allow(''),
+
+  // AI Service
+  AI_API_BASE_URL: Joi.string()
+    .uri()
+    .default('https://generativelanguage.googleapis.com'),
+  AI_API_KEY: Joi.string().required(),
+  AI_MODEL: Joi.string().default('models/gemini-1.5-flash'),
+  AI_API_TIMEOUT_MS: Joi.number().default(20000),
 });

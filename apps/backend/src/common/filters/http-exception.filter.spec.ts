@@ -1,7 +1,4 @@
-import {
-  BadGatewayException,
-  BadRequestException,
-} from '@nestjs/common';
+import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { HttpExceptionFilter } from './http-exception.filter';
 
@@ -61,10 +58,7 @@ describe('HttpExceptionFilter', () => {
     const host = createHost(responseMock, request);
     const filter = new HttpExceptionFilter();
 
-    filter.catch(
-      new BadGatewayException('服务暂时不可用'),
-      host,
-    );
+    filter.catch(new BadGatewayException('服务暂时不可用'), host);
 
     expect(responseMock.status).toHaveBeenCalledWith(502);
     expect(responseMock.json).toHaveBeenCalledWith(

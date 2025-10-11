@@ -37,9 +37,10 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
     response.status(status).json(errorResponse);
   }
 
-  private normalizeExceptionBody(
-    payload: unknown,
-  ): { error: string; message: string | unknown } {
+  private normalizeExceptionBody(payload: unknown): {
+    error: string;
+    message: string | unknown;
+  } {
     if (!payload) {
       return {
         error: 'Unknown Error',

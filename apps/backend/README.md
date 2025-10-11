@@ -180,6 +180,35 @@ Nexus 是一个基于 NestJS 框架构建的后端应用程序。它提供了一
 - **静态标签来源**：`src/modules/screen/data/*.json` 下的多层级结构已汇总常见 L2 标签，无需实时查询数据库即可构建候选项。后续如需支持运营配置，可考虑改写为持久化存储。
 - **拓展示例**：可以结合解析标签批量打标、导出、或为推荐系统提供特征；若要增加新的解析维度，只需在实体、DTO、服务层的匹配逻辑中同步扩展，并更新对应 JSON 数据。
 
+### AI 模块（AI Module）
+
+- 位置：`src/modules/ai`，通过 `AiModule` 暴露 `AiService` 供业务调用（例如 `screen` 模块的 AI 检索）。
+- 能力：
+  - `generateTextResponse({ userPrompt, systemInstruction? })`：直接调用 Gemini `generateContent` 接口，返回去除首尾空白后的纯文本；缺少密钥、上游失败或空响应时抛出 500（InternalServerErrorException）。
+  - `generateJsonResponse<T>({ ... })`：在 system 指令中强制“仅返回合法 JSON”，支持从纯 JSON 或 ```json 代码块中抽取并解析；解析失败抛出 500。
+- 配置（见 `src/config/configuration.ts` 的 `ai` 节点）：
+  - `AI_API_BASE_URL`（默认 `https://generativelanguage.googleapis.com`）
+  - `AI_API_KEY`（必填；若未配置则回退至 `OPENAI_API_KEY`）
+  - `AI_MODEL`（例如 `models/gemini-1.5-flash`；若未配置则回退至 `OPENAI_MODEL` 或使用默认）
+  - `AI_API_TIMEOUT_MS`（默认 `20000` 毫秒）
+- 使用示例：
+
+```ts
+// 任意业务 Service 中
+constructor(private readonly ai: AiService) {}
+
+async demo() {
+  const data = await this.ai.generateJsonResponse<{ foo: string }>({
+    systemInstruction: '只返回 JSON，禁止额外说明。',
+    userPrompt: '返回 {"foo":"bar"}'
+  });
+  return data; // => { foo: 'bar' }
+}
+```
+
+- 失败兜底（与 Screen 模块集成）：对每次 LLM 调用均已添加 try/catch，失败时返回空结果而不中断整体请求：意图识别→全 false；一级标签→`[]`；二级标签→`{}`。
+- 安全建议：密钥仅存放在本地/CI 安全存储，不要写入代码或日志；根据场景选择轻量模型并合理设置超时与并发，避免配额耗尽。
+
 ## config
 
 ### **1. `src/config/configuration.ts`：配置工厂函数**

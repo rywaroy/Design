@@ -8,38 +8,16 @@ import { ScreenFuzzySearchQueryDto } from './dto/screen-fuzzy-search-query.dto';
 import { ScreenPreciseSearchQueryDto } from './dto/screen-precise-search-query.dto';
 import { ScreenSearchResultDto } from './dto/screen-search-result.dto';
 import { Screen, ScreenDocument } from './entities/screen.entity';
-
-interface TagNode {
-  name: string;
-  children?: TagNode[];
-}
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pageTypeData = require('./data/page_type.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const appCategoryData = require('./data/app_category.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const componentIndexData = require('./data/component_index.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const tagsPrimaryData = require('./data/tags_primary.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const tagsStyleData = require('./data/tags_style.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const tagsComponentsData = require('./data/tags_components.json') as TagNode[];
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const layoutTypeData = require('./data/layout_type.json') as TagNode[];
-
-const collectSecondLevelNames = (nodes: TagNode[]): string[] => {
-  const result = new Set<string>();
-  nodes?.forEach((node) => {
-    node?.children?.forEach((child) => {
-      if (child?.name) {
-        result.add(child.name.trim());
-      }
-    });
-  });
-  return Array.from(result);
-};
+import {
+  appCategoryData,
+  collectSecondLevelNames,
+  componentIndexData,
+  layoutTypeData,
+  pageTypeData,
+  tagsComponentsData,
+  tagsPrimaryData,
+  tagsStyleData,
+} from './utils/tag-taxonomy.util';
 
 const PAGE_TYPE_L2 = collectSecondLevelNames(pageTypeData);
 const APP_CATEGORY_L2 = collectSecondLevelNames(appCategoryData);
@@ -100,6 +78,7 @@ export class ScreenService {
       tagsPrimaryL2,
       tagsStyleL2,
       tagsComponentsL2,
+      designStyle,
     } = query;
 
     const filter: FilterQuery<Screen> = {};
