@@ -8,6 +8,7 @@ import ProjectPage from './pages/Project';
 import ProjectDetailPage from './pages/ProjectDetail';
 import DefaultLayout from './layout/Default';
 import { AuthProvider } from './contexts/AuthContext';
+import { ProjectListProvider } from './contexts/ProjectListContext';
 
 const Root = () => (
   <ConfigProvider
@@ -30,15 +31,17 @@ const Root = () => (
   >
     <AntApp>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route element={<DefaultLayout />}>
-              <Route path="/" element={<ProjectPage />} />
-              <Route path="/project/:projectId" element={<ProjectDetailPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        <ProjectListProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<DefaultLayout />}>
+                <Route path="/" element={<ProjectPage />} />
+                <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ProjectListProvider>
       </AuthProvider>
     </AntApp>
   </ConfigProvider>
