@@ -25,13 +25,9 @@ export class ScreenController {
 
   @Get()
   @ApiOperation({ summary: '根据项目查询页面列表' })
-  @ApiOkResponse({
-    description: '查询成功',
-    type: Screen,
-    isArray: true,
-  })
+  @ApiPaginatedResponse(Screen, '查询成功')
   findByProject(@Query() query: ScreenListQueryDto) {
-    return this.screenService.findByProjectId(query.projectId);
+    return this.screenService.findByProject(query);
   }
 
   @Get('filters')

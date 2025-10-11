@@ -1,30 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
-import { RESOURCE_BASE_URL } from '../../lib/constant';
+import { resolveAssetUrl } from '../../lib/asset';
 
 export interface ProjectCardProps {
   project: Project;
   className?: string;
+  onClick?: (projectId: string) => void;
 }
-
-const resolveAssetUrl = (path?: string | null): string | undefined => {
-  if (!path) {
-    return undefined;
-  }
-
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-
-  return `${RESOURCE_BASE_URL}/${path.replace(/^\/+/, '')}`;
-};
 
 const combineClassName = (base: string, extra?: string) => {
   return extra ? `${base} ${extra}` : base;
 };
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
+const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
+
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }) => {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
 
@@ -51,7 +43,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
     : 'h-full w-full object-cover rounded-[16px] sm:rounded-[20px]';
   const prevButtonPositionClass = isIos ? 'left-9 sm:left-[-12px]' : 'left-4 sm:left-5';
   const nextButtonPositionClass = isIos ? 'right-9 sm:right-[-12px]' : 'right-4 sm:right-5';
-  const navigationCursorClass = 'group-hover:cursor-pointer';
   const handlePrev = () => {
     if (screens.length <= 1) {
       return;
@@ -68,10 +59,39 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
 
   const screenUrl = resolveAssetUrl(currentScreen) ?? currentScreen;
   const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl;
+  const clickable = typeof onClick === 'function';
+
+  const handleCardClick = () => {
+    if (!clickable) {
+      return;
+    }
+    onClick(project.projectId);
+  };
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!clickable || !isActivationKey(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    onClick(project.projectId);
+  };
+
+  const containerClassName = combineClassName(
+    `${articleBaseClass} ${articleVariantClass}`,
+    className,
+  );
+
+  const interactiveClassName = clickable
+    ? 'cursor-pointer transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-800'
+    : '';
 
   return (
     <article
-      className={combineClassName(`${articleBaseClass} ${articleVariantClass}`, className)}
+      className={combineClassName(containerClassName, interactiveClassName)}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
     >
       <div
         className={`${previewBaseClass} ${previewVariantClass}`}
@@ -107,16 +127,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
             <button
               type="button"
               aria-label="上一张预览"
-              className={`pointer-events-none absolute ${prevButtonPositionClass} top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-lg text-gray-700 shadow-md opacity-0 transition-opacity duration-200 hover:bg-white group-hover:pointer-events-auto group-hover:opacity-100 ${navigationCursorClass}`}
-              onClick={handlePrev}
+              className={`pointer-events-none absolute ${prevButtonPositionClass} top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-lg text-gray-700 shadow-md opacity-0 transition-opacity duration-200 hover:bg-white group-hover:pointer-events-auto group-hover:opacity-100`}
+              onClick={(event) => {
+                event.stopPropagation();
+                handlePrev();
+              }}
             >
               <ArrowLeftOutlined className="text-lg" />
             </button>
             <button
               type="button"
               aria-label="下一张预览"
-              className={`pointer-events-none absolute ${nextButtonPositionClass} top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-lg text-gray-700 shadow-md opacity-0 transition-opacity duration-200 hover:bg-white group-hover:pointer-events-auto group-hover:opacity-100 ${navigationCursorClass}`}
-              onClick={handleNext}
+              className={`pointer-events-none absolute ${nextButtonPositionClass} top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-lg text-gray-700 shadow-md opacity-0 transition-opacity duration-200 hover:bg-white group-hover:pointer-events-auto group-hover:opacity-100`}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleNext();
+              }}
             >
               <ArrowRightOutlined className="text-lg" />
             </button>

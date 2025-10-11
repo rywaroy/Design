@@ -5,6 +5,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { ScreenFilterQueryDto } from './dto/screen-filter-query.dto';
 import { ScreenFilterResponseDto } from './dto/screen-filter-response.dto';
 import { ScreenFuzzySearchQueryDto } from './dto/screen-fuzzy-search-query.dto';
+import { ScreenListQueryDto } from './dto/screen-list-query.dto';
 import { ScreenPreciseSearchQueryDto } from './dto/screen-precise-search-query.dto';
 import { ScreenSearchResultDto } from './dto/screen-search-result.dto';
 import { Screen, ScreenDocument } from './entities/screen.entity';
@@ -35,12 +36,34 @@ export class ScreenService {
     private readonly screenModel: Model<ScreenDocument>,
   ) {}
 
-  async findByProjectId(projectId: string): Promise<Screen[]> {
-    return this.screenModel
-      .find({ projectId })
-      .sort({ isRecommended: -1, createdAt: -1 })
-      .lean()
-      .exec();
+  async findByProject(
+    query: ScreenListQueryDto,
+  ): Promise<PaginationDto<Screen>> {
+    const { projectId, page = 1, pageSize = 20 } = query;
+
+    const filter: FilterQuery<Screen> = {
+      projectId,
+    };
+
+    const skip = (page - 1) * pageSize;
+
+    const [items, total] = await Promise.all([
+      this.screenModel
+        .find(filter)
+        .sort({ isRecommended: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean()
+        .exec(),
+      this.screenModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async getFilterOptions(

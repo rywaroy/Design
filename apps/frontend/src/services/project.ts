@@ -25,3 +25,14 @@ export const getProjects = (params: ProjectListParams) =>
     method: 'GET',
     params,
   });
+
+export interface ProjectDetailResponse {
+  project: Project;
+}
+
+export const getProjectDetail = (projectId: string) =>
+  request<ProjectDetailResponse>({
+    url: '/project/detail',
+    method: 'GET',
+    params: { projectId },
+  });

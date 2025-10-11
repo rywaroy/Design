@@ -5,6 +5,7 @@ import 'antd/dist/reset.css';
 import './index.css';
 import LoginPage from './pages/Login';
 import ProjectPage from './pages/Project';
+import ProjectDetailPage from './pages/ProjectDetail';
 import DefaultLayout from './layout/Default';
 import { AuthProvider } from './contexts/AuthContext';
 
@@ -34,6 +35,7 @@ const Root = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route element={<DefaultLayout />}>
               <Route path="/" element={<ProjectPage />} />
+              <Route path="/project/:projectId" element={<ProjectDetailPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

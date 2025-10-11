@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
+import { ProjectDetailResponseDto } from './dto/project-detail-response.dto';
 import { Project, ProjectDocument } from './entities/project.entity';
 
 @Injectable()
@@ -42,5 +43,13 @@ export class ProjectService {
       page,
       pageSize,
     };
+  }
+
+  async findDetail(projectId: string): Promise<ProjectDetailResponseDto> {
+    const project = await this.projectModel.findOne({ projectId }).lean();
+    if (!project) {
+      throw new NotFoundException('项目不存在');
+    }
+    return { project };
   }
 }

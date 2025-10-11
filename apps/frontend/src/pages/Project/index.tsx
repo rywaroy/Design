@@ -8,6 +8,7 @@ import type {
 } from '../../services/project';
 import { getProjects } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
+import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 30;
 const DEFAULT_PLATFORM: ProjectPlatform = 'ios';
@@ -106,6 +107,7 @@ const useInfinityProjects = (platform: ProjectPlatform) => {
 const ProjectPage: React.FC = () => {
   const [platform, setPlatform] = useState<ProjectPlatform>(DEFAULT_PLATFORM);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
   const { projects, loading, hasMore, total, error, loadMore } = useInfinityProjects(platform);
   const gridClassName = useMemo(() => {
     if (platform === 'ios') {
@@ -146,6 +148,13 @@ const ProjectPage: React.FC = () => {
     setPlatform(value as ProjectPlatform);
   };
 
+  const handleProjectClick = useCallback(
+    (projectId: string) => {
+      navigate(`/project/${projectId}`);
+    },
+    [navigate],
+  );
+
   return (
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -178,7 +187,11 @@ const ProjectPage: React.FC = () => {
 
       <section className={gridClassName}>
         {projects.map((project) => (
-          <ProjectCard key={project.projectId} project={project} />
+          <ProjectCard
+            key={project.projectId}
+            project={project}
+            onClick={handleProjectClick}
+          />
         ))}
       </section>
 

@@ -1,21 +1,56 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 export interface TagNode {
   name: string;
   children?: TagNode[];
 }
 
-export const pageTypeData = require('../data/page_type.json') as TagNode[];
-export const appCategoryData =
-  require('../data/app_category.json') as TagNode[];
-export const componentIndexData =
-  require('../data/component_index.json') as TagNode[];
-export const tagsPrimaryData =
-  require('../data/tags_primary.json') as TagNode[];
-export const tagsStyleData = require('../data/tags_style.json') as TagNode[];
-export const tagsComponentsData =
-  require('../data/tags_components.json') as TagNode[];
-export const layoutTypeData = require('../data/layout_type.json') as TagNode[];
+const resolveDataFile = (fileName: string): string | null => {
+  const cwd = process.cwd();
+  const candidates: string[] = [];
+  const tryPaths = [
+    join(__dirname, '..', 'data', fileName),
+    join(__dirname, '..', '..', 'data', fileName),
+    join(cwd, 'dist', 'modules', 'screen', 'data', fileName),
+    join(cwd, 'src', 'modules', 'screen', 'data', fileName),
+  ];
+
+  const packageRoot = join(cwd, 'apps', 'backend');
+  candidates.push(...tryPaths);
+  if (existsSync(packageRoot)) {
+    candidates.push(
+      join(packageRoot, 'dist', 'modules', 'screen', 'data', fileName),
+      join(packageRoot, 'src', 'modules', 'screen', 'data', fileName),
+    );
+  }
+
+  for (const filePath of candidates) {
+    if (existsSync(filePath)) {
+      return filePath;
+    }
+  }
+
+  return null;
+};
+
+const loadTagJson = (fileName: string): TagNode[] => {
+  const filePath = resolveDataFile(fileName);
+  if (!filePath) {
+    throw new Error(`无法找到标签配置文件: ${fileName}`);
+  }
+
+  const content = readFileSync(filePath, 'utf8');
+  return JSON.parse(content) as TagNode[];
+};
+
+export const pageTypeData = loadTagJson('page_type.json');
+export const appCategoryData = loadTagJson('app_category.json');
+export const componentIndexData = loadTagJson('component_index.json');
+export const tagsPrimaryData = loadTagJson('tags_primary.json');
+export const tagsStyleData = loadTagJson('tags_style.json');
+export const tagsComponentsData = loadTagJson('tags_components.json');
+export const layoutTypeData = loadTagJson('layout_type.json');
 
 export type ScreenDimensionKey =
   | 'appCategory'
@@ -87,5 +122,3 @@ export const buildSecondLevelLookup = (
   });
   return map;
 };
-
-/* eslint-enable @typescript-eslint/no-var-requires */
