@@ -205,8 +205,9 @@ export class ScreenAiService {
     private readonly screenService: ScreenService,
   ) {}
 
-  async searchWithRequirement(dto: ScreenAiSearchRequestDto): Promise<any> {
-    // ScreenAiSearchResponseDto
+  async searchWithRequirement(
+    dto: ScreenAiSearchRequestDto,
+  ): Promise<ScreenAiSearchResponseDto> {
     const requirement = dto.requirement;
 
     const intents = await this.detectDimensionIntent(requirement);
@@ -223,7 +224,6 @@ export class ScreenAiService {
 
     let searchResult: PaginationDto<ScreenSearchResultDto>;
     let notice: string | undefined;
-
     if (totalSelectedTags === 0) {
       notice = 'AI 未能提取任何可用标签，请完善需求描述后重试';
       searchResult = {
