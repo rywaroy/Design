@@ -13,6 +13,8 @@
 body {
   margin: 0;
   background-color: #ffffff;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
 }
 
 a {

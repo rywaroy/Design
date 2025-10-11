@@ -92,7 +92,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
 
         {screens.length > 1 ? (
           <>
-            <div className="absolute right-3 top-3 flex items-center gap-1">
+            <div className="absolute right-0 top-[-4px] flex items-center gap-1">
               {screens.map((_, index) => (
                 <span
                   key={`${project.projectId}-${index}`}
