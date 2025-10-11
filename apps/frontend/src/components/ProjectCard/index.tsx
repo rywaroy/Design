@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { Skeleton } from 'antd';
 import type { Project } from '@design/shared-types';
 import { resolveAssetUrl } from '../../lib/asset';
 
@@ -18,29 +19,57 @@ const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }) => {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
 
   useEffect(() => {
     setActiveScreenIndex(0);
+    setPreviewLoaded(false);
+    setPreviewFailed(false);
   }, [project.projectId]);
 
   const currentScreen = screens[activeScreenIndex];
+  const screenUrl = resolveAssetUrl(currentScreen) ?? currentScreen ?? null;
+  const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
+
+  useEffect(() => {
+    if (screenUrl) {
+      setPreviewLoaded(false);
+      setPreviewFailed(false);
+    } else {
+      setPreviewLoaded(true);
+      setPreviewFailed(true);
+    }
+  }, [screenUrl]);
+
+  useEffect(() => {
+    if (logoUrl) {
+      setLogoLoaded(false);
+      setLogoFailed(false);
+    } else {
+      setLogoLoaded(true);
+      setLogoFailed(true);
+    }
+  }, [logoUrl]);
+
   const hasScreens = screens.length > 0;
-  const isWeb = project.platform === 'web';
   const isIos = project.platform === 'ios';
   const articleBaseClass = 'flex flex-col gap-5 rounded-3xl shadow-sm ring-1 ring-gray-100';
   const articleVariantClass = isIos
     ? 'bg-[#f1f1f1] px-6 pt-5 pb-5 mx-auto w-full max-w-[340px] rounded-[36px] place-self-center sm:max-w-[360px] sm:rounded-[40px]'
     : 'bg-[#f1f1f1] p-4 sm:p-5';
-  const previewBaseClass = 'group relative rounded-[28px]';
+  const previewBaseClass = 'group relative overflow-hidden rounded-[28px]';
   const previewVariantClass = isIos
-    ? 'bg-[#f1f1f1] px-6 pt-6 pb-6 mx-auto w-full max-w-[280px] rounded-[32px] sm:px-8 sm:pt-8 sm:pb-8 sm:rounded-[36px]'
-    : 'bg-[#f1f1f1] p-3 sm:p-4';
+    ? 'bg-[#f1f1f1] px-6 pt-6 pb-6 mx-auto w-full max-w-[280px] rounded-[32px] sm:px-8 sm:pt-8 sm:pb-8 sm:rounded-[36px] aspect-[9/19.5]'
+    : 'bg-[#f1f1f1] p-3 sm:p-4 aspect-[16/10]';
 
   const metaRowExtraClass = isIos ? 'w-full px-2 sm:px-4' : undefined;
   const previewImageClass = isIos
-    ? 'h-full w-full object-cover rounded-[24px] sm:rounded-[28px]'
-    : 'h-full w-full object-cover rounded-[16px] sm:rounded-[20px]';
+    ? 'h-full w-full rounded-[24px] object-cover sm:rounded-[28px]'
+    : 'h-full w-full rounded-[16px] object-cover sm:rounded-[20px]';
   const prevButtonPositionClass = isIos ? 'left-9 sm:left-[-12px]' : 'left-4 sm:left-5';
   const nextButtonPositionClass = isIos ? 'right-9 sm:right-[-12px]' : 'right-4 sm:right-5';
   const handlePrev = () => {
@@ -57,8 +86,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
     setActiveScreenIndex((index) => (index + 1) % screens.length);
   };
 
-  const screenUrl = resolveAssetUrl(currentScreen) ?? currentScreen;
-  const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl;
   const clickable = typeof onClick === 'function';
 
   const handleCardClick = () => {
@@ -96,14 +123,38 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       <div
         className={`${previewBaseClass} ${previewVariantClass}`}
       >
-        {hasScreens && screenUrl ? (
-          <img
-            src={screenUrl}
-            alt={`${project.name} preview ${activeScreenIndex + 1}`}
-            loading="lazy"
-            decoding="async"
-            className={previewImageClass}
-          />
+        {hasScreens && screenUrl && !previewFailed ? (
+          <div className="relative h-full w-full">
+            {!previewLoaded ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <Skeleton.Image
+                  active
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: isIos ? 24 : 16,
+                  }}
+                />
+              </div>
+            ) : null}
+
+            <img
+              src={screenUrl}
+              alt={`${project.name} preview ${activeScreenIndex + 1}`}
+              loading="lazy"
+              decoding="async"
+              className={`${previewImageClass} transition-opacity duration-300 ${
+                previewLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => {
+                setPreviewLoaded(true);
+              }}
+              onError={() => {
+                setPreviewLoaded(true);
+                setPreviewFailed(true);
+              }}
+            />
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
             暂无预览
@@ -151,14 +202,39 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       </div>
 
       <div className={combineClassName('flex items-center gap-3', metaRowExtraClass)}>
-        {logoUrl ? (
-          <img
-            src={logoUrl}
-            alt={`${project.appName} logo`}
-            loading="lazy"
-            decoding="async"
-            className="h-12 w-12 rounded-2xl object-cover"
-          />
+        {logoUrl && !logoFailed ? (
+          <div className="relative h-12 w-12">
+            {!logoLoaded ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Skeleton.Avatar
+                  active
+                  size={48}
+                  shape="square"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 16,
+                  }}
+                />
+              </div>
+            ) : null}
+            <img
+              src={logoUrl}
+              alt={`${project.appName} logo`}
+              loading="lazy"
+              decoding="async"
+              className={`h-12 w-12 rounded-2xl object-cover transition-opacity duration-300 ${
+                logoLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => {
+                setLogoLoaded(true);
+              }}
+              onError={() => {
+                setLogoLoaded(true);
+                setLogoFailed(true);
+              }}
+            />
+          </div>
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-sm font-medium text-gray-500">
             {project.appName.slice(0, 1).toUpperCase()}

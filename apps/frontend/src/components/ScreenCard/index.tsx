@@ -1,4 +1,6 @@
 import type { FC, KeyboardEvent, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { Skeleton } from 'antd';
 
 const combineClassName = (base: string, extra?: string) => {
   return extra ? `${base} ${extra}` : base;
@@ -43,10 +45,23 @@ const ScreenCard: FC<ScreenCardProps> = ({
   onClick,
   variant = 'ios',
 }) => {
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const hasCover = Boolean(coverUrl);
   const clickable = typeof onClick === 'function';
   const hasActions = actions.length > 0;
   const variantConfig = variantClassMap[variant] ?? variantClassMap.ios;
+  const shouldShowCover = hasCover && !coverFailed;
+
+  useEffect(() => {
+    if (coverUrl) {
+      setCoverLoaded(false);
+      setCoverFailed(false);
+    } else {
+      setCoverLoaded(true);
+      setCoverFailed(true);
+    }
+  }, [coverUrl]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!clickable || !isActivationKey(event.key)) {
@@ -67,14 +82,37 @@ const ScreenCard: FC<ScreenCardProps> = ({
       onClick={() => onClick?.()}
       onKeyDown={handleKeyDown}
     >
-      {hasCover ? (
-        <img
-          src={coverUrl!}
-          alt="screen preview"
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover"
-        />
+      {shouldShowCover ? (
+        <div className="relative h-full w-full">
+          {!coverLoaded ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <Skeleton.Image
+                active
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: variant === 'web' ? 24 : 36,
+                }}
+              />
+            </div>
+          ) : null}
+          <img
+            src={coverUrl!}
+            alt="screen preview"
+            loading="lazy"
+            decoding="async"
+            className={`h-full w-full object-cover transition-opacity duration-300 ${
+              coverLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            onLoad={() => {
+              setCoverLoaded(true);
+            }}
+            onError={() => {
+              setCoverLoaded(true);
+              setCoverFailed(true);
+            }}
+          />
+        </div>
       ) : (
         <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
           {fallbackText}
