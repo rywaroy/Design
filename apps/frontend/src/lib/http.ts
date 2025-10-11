@@ -15,17 +15,17 @@ export interface ApiResponse<T = unknown> {
 
 export class ApiException<T = unknown> extends Error {
   code?: number;
-  response?: AxiosResponse<ApiResponse<T> | unknown>;
+  response?: AxiosResponse<ApiResponse<T>>;
 
   constructor(
     message: string,
-    response?: AxiosResponse<ApiResponse<T> | unknown>,
+    response?: AxiosResponse<ApiResponse<T>>,
     code?: number,
   ) {
     super(message);
     this.name = 'ApiException';
     this.response = response;
-    this.code = code ?? (response?.data as ApiResponse<T> | undefined)?.code;
+    this.code = code ?? response?.data?.code;
   }
 }
 
@@ -90,11 +90,11 @@ const attachAuthorization = (
 // 统一解析后端返回的格式，并在业务失败时抛出自定义异常
 const transformSuccess = <T>(
   response: AxiosResponse<ApiResponse<T>>,
-): T => {
+): ApiResponse<T> => {
   const payload = response.data;
 
   if (payload?.code === 0) {
-    return payload.data;
+    return payload;
   }
 
   const errorMessage = payload?.message ?? '请求失败';
@@ -131,7 +131,7 @@ const transformFailure = (error: AxiosError<ApiResponse<unknown>>) => {
 
     throw new ApiException(
       errorMessage,
-      error.response as AxiosResponse<ApiResponse<unknown> | unknown>,
+      error.response as AxiosResponse<ApiResponse<unknown>>,
       errorCode,
     );
   }
@@ -150,8 +150,10 @@ const transformFailure = (error: AxiosError<ApiResponse<unknown>>) => {
 httpClient.interceptors.request.use(attachAuthorization);
 httpClient.interceptors.response.use(transformSuccess, transformFailure);
 
-export const request = <T = unknown>(config: AxiosRequestConfig): Promise<T> => {
-  return httpClient.request<ApiResponse<T>, T>(config);
+export const request = <T = unknown>(
+  config: AxiosRequestConfig,
+): Promise<ApiResponse<T>> => {
+  return httpClient.request<ApiResponse<T>, ApiResponse<T>>(config);
 };
 
 export default httpClient;
