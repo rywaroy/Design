@@ -26,6 +26,12 @@ export class Project {
 
   @Prop({ required: true, default: 0 })
   recommendedCount: number;
+
+  @Prop()
+  appTagline?: string;
+
+  @Prop({ type: [String], default: [] })
+  keywords?: string[];
 }
 
 export type ProjectDocument = HydratedDocument<Project>;
