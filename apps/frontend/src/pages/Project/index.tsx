@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Segmented, Spin, Empty } from 'antd';
+import { Segmented, Spin, Empty, BackTop } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
 import type { ProjectListParams, ProjectPlatform } from '../../services/project';
 import { getProjects } from '../../services/project';
@@ -160,6 +160,7 @@ const ProjectPage: React.FC = () => {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const restoredScrollRef = useRef(false);
   const navigate = useNavigate();
+  const backTopTarget = useCallback(() => window, []);
   const { platform, projects, loading, hasMore, total, error, loadMore, setPlatform, scrollTop, setScrollTop } =
     useInfinityProjects();
   const gridClassName = useMemo(() => {
@@ -306,6 +307,8 @@ const ProjectPage: React.FC = () => {
       ) : null}
 
       <div ref={sentinelRef} className="h-1" />
+
+      <BackTop visibilityHeight={240} target={backTopTarget} />
     </div>
   );
 };

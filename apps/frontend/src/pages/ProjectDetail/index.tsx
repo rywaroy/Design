@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Empty, Spin, Tag } from 'antd';
+import { BackTop, Button, Empty, Spin, Tag } from 'antd';
 import { LeftOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
 import { getProjectDetail } from '../../services/project';
@@ -100,6 +100,7 @@ const ProjectDetailPage: FC = () => {
   const [screenState, setScreenState] = useState<ScreenState>(createInitialScreenState);
   const screenRequestIdRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const backTopTarget = useCallback(() => window, []);
 
   const handleBack = () => {
     navigate(-1);
@@ -351,6 +352,8 @@ const ProjectDetailPage: FC = () => {
         )}
         <div ref={sentinelRef} className="h-1 w-full" />
       </section>
+
+      <BackTop visibilityHeight={240} target={backTopTarget} />
     </div>
   );
 };
