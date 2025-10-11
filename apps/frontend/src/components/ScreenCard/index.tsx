@@ -1,6 +1,7 @@
-import type { FC, KeyboardEvent, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
-import { Skeleton } from 'antd';
+import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Skeleton } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 
 const combineClassName = (base: string, extra?: string) => {
   return extra ? `${base} ${extra}` : base;
@@ -47,21 +48,48 @@ const ScreenCard: FC<ScreenCardProps> = ({
 }) => {
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const hasCover = Boolean(coverUrl);
   const clickable = typeof onClick === 'function';
   const hasActions = actions.length > 0;
   const variantConfig = variantClassMap[variant] ?? variantClassMap.ios;
   const shouldShowCover = hasCover && !coverFailed;
+  const coverImgRef = useRef<HTMLImageElement | null>(null);
+
+  const coverSrc = useMemo(() => {
+    if (!coverUrl) {
+      return null;
+    }
+    if (reloadToken === 0) {
+      return coverUrl;
+    }
+    const connector = coverUrl.includes('?') ? '&' : '?';
+    return `${coverUrl}${connector}_r=${reloadToken}`;
+  }, [coverUrl, reloadToken]);
 
   useEffect(() => {
-    if (coverUrl) {
+    if (coverSrc) {
       setCoverLoaded(false);
       setCoverFailed(false);
+      const img = coverImgRef.current;
+      if (img?.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setCoverLoaded(true);
+      }
     } else {
       setCoverLoaded(true);
       setCoverFailed(true);
     }
-  }, [coverUrl]);
+  }, [coverSrc]);
+
+  const handleCoverReload = (event: MouseEvent) => {
+    event.stopPropagation();
+    if (!coverUrl) {
+      return;
+    }
+    setCoverLoaded(false);
+    setCoverFailed(false);
+    setReloadToken((token) => token + 1);
+  };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!clickable || !isActivationKey(event.key)) {
@@ -85,7 +113,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
       {shouldShowCover ? (
         <div className="relative h-full w-full">
           {!coverLoaded ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gray-100">
               <Skeleton.Image
                 active
                 style={{
@@ -97,12 +125,13 @@ const ScreenCard: FC<ScreenCardProps> = ({
             </div>
           ) : null}
           <img
-            src={coverUrl!}
+            src={coverSrc!}
             alt="screen preview"
             loading="lazy"
             decoding="async"
+            ref={coverImgRef}
             className={`h-full w-full object-cover transition-opacity duration-300 ${
-              coverLoaded ? 'opacity-100' : 'opacity-0'
+              coverLoaded && !coverFailed ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={() => {
               setCoverLoaded(true);
@@ -112,10 +141,27 @@ const ScreenCard: FC<ScreenCardProps> = ({
               setCoverFailed(true);
             }}
           />
+          {coverFailed ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/95">
+              <div className="flex flex-col items-center gap-3">
+                <span className="text-sm text-gray-500">图片加载失败</span>
+                <Button size="small" icon={<ReloadOutlined />} onClick={handleCoverReload}>
+                  重试
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
-          {fallbackText}
+          <div className="flex flex-col items-center gap-3">
+            <span className="text-sm text-gray-500">{fallbackText}</span>
+            {coverUrl ? (
+              <Button size="small" icon={<ReloadOutlined />} onClick={handleCoverReload}>
+                重试
+              </Button>
+            ) : null}
+          </div>
         </div>
       )}
 

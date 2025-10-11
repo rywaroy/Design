@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Segmented, Spin, Empty, BackTop } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
-import type { ProjectListParams, ProjectPlatform } from '../../services/project';
+import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
 import { getProjects } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +21,33 @@ const useInfinityProjects = () => {
   const { platform, projects, currentPage, hasMore, total, error, loading, scrollTop } = state;
   const loadingRef = useRef(false);
   const requestIdRef = useRef(0);
+  const mergeProjects = useCallback(
+    (prevList: ProjectListItem[], nextItems: ProjectListItem[], replace?: boolean) => {
+      if (replace) {
+        return nextItems;
+      }
+
+      const indexMap = new Map<string, number>();
+      const merged = [...prevList];
+
+      prevList.forEach((item, index) => {
+        indexMap.set(item.projectId, index);
+      });
+
+      nextItems.forEach((item) => {
+        const existingIndex = indexMap.get(item.projectId);
+        if (typeof existingIndex === 'number') {
+          merged[existingIndex] = item;
+        } else {
+          indexMap.set(item.projectId, merged.length);
+          merged.push(item);
+        }
+      });
+
+      return merged;
+    },
+    [],
+  );
 
   const fetchProjects = useCallback(
     async (
@@ -56,7 +83,7 @@ const useInfinityProjects = () => {
         }
 
         setState((prev) => {
-          const nextProjects = params.replace ? items : [...prev.projects, ...items];
+          const nextProjects = mergeProjects(prev.projects, items, params.replace);
           return {
             ...prev,
             projects: nextProjects,
@@ -81,7 +108,7 @@ const useInfinityProjects = () => {
         }
       }
     },
-    [platform, setState],
+    [mergeProjects, platform, setState],
   );
 
   useEffect(() => {

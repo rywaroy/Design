@@ -101,6 +101,33 @@ const ProjectDetailPage: FC = () => {
   const screenRequestIdRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const backTopTarget = useCallback(() => window, []);
+  const mergeScreens = useCallback(
+    (prevList: ScreenListItem[], nextItems: ScreenListItem[], replace?: boolean) => {
+      if (replace) {
+        return nextItems;
+      }
+
+      const indexMap = new Map<string, number>();
+      const merged = [...prevList];
+
+      prevList.forEach((item, index) => {
+        indexMap.set(item.screenId, index);
+      });
+
+      nextItems.forEach((item) => {
+        const existingIndex = indexMap.get(item.screenId);
+        if (typeof existingIndex === 'number') {
+          merged[existingIndex] = item;
+        } else {
+          indexMap.set(item.screenId, merged.length);
+          merged.push(item);
+        }
+      });
+
+      return merged;
+    },
+    [],
+  );
 
   const handleBack = () => {
     navigate(-1);
@@ -175,7 +202,7 @@ const ProjectDetailPage: FC = () => {
           const nextItems = items ?? [];
 
           setScreenState((prev) => ({
-            items: replace ? nextItems : [...prev.items, ...nextItems],
+            items: mergeScreens(prev.items, nextItems, replace),
             page: parsedPage,
             pageSize: parsedPageSize,
             loading: false,
@@ -195,7 +222,7 @@ const ProjectDetailPage: FC = () => {
           }));
         });
     },
-    [projectId],
+    [mergeScreens, projectId],
   );
 
   useEffect(() => {

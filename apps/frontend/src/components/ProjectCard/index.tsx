@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
-import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { Skeleton } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
+import { ArrowLeftOutlined, ArrowRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Skeleton } from 'antd';
 import type { Project } from '@design/shared-types';
 import { resolveAssetUrl } from '../../lib/asset';
 
@@ -23,7 +23,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   const [previewFailed, setPreviewFailed] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [previewReloadToken, setPreviewReloadToken] = useState(0);
+  const [logoReloadToken, setLogoReloadToken] = useState(0);
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
+  const previewImgRef = useRef<HTMLImageElement | null>(null);
+  const logoImgRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     setActiveScreenIndex(0);
@@ -35,25 +39,75 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   const screenUrl = resolveAssetUrl(currentScreen) ?? currentScreen ?? null;
   const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
 
+  const screenSrc = useMemo(() => {
+    if (!screenUrl) {
+      return null;
+    }
+    if (previewReloadToken === 0) {
+      return screenUrl;
+    }
+    const connector = screenUrl.includes('?') ? '&' : '?';
+    return `${screenUrl}${connector}_r=${previewReloadToken}`;
+  }, [previewReloadToken, screenUrl]);
+
+  const logoSrc = useMemo(() => {
+    if (!logoUrl) {
+      return null;
+    }
+    if (logoReloadToken === 0) {
+      return logoUrl;
+    }
+    const connector = logoUrl.includes('?') ? '&' : '?';
+    return `${logoUrl}${connector}_r=${logoReloadToken}`;
+  }, [logoReloadToken, logoUrl]);
+
   useEffect(() => {
-    if (screenUrl) {
+    if (screenSrc) {
       setPreviewLoaded(false);
       setPreviewFailed(false);
+      const img = previewImgRef.current;
+      if (img?.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setPreviewLoaded(true);
+      }
     } else {
       setPreviewLoaded(true);
       setPreviewFailed(true);
     }
-  }, [screenUrl]);
+  }, [screenSrc]);
 
   useEffect(() => {
-    if (logoUrl) {
+    if (logoSrc) {
       setLogoLoaded(false);
       setLogoFailed(false);
+      const img = logoImgRef.current;
+      if (img?.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setLogoLoaded(true);
+      }
     } else {
       setLogoLoaded(true);
       setLogoFailed(true);
     }
-  }, [logoUrl]);
+  }, [logoSrc]);
+
+  const handlePreviewReload = (event: MouseEvent) => {
+    event.stopPropagation();
+    if (!screenUrl) {
+      return;
+    }
+    setPreviewLoaded(false);
+    setPreviewFailed(false);
+    setPreviewReloadToken((token) => token + 1);
+  };
+
+  const handleLogoReload = (event: MouseEvent) => {
+    event.stopPropagation();
+    if (!logoUrl) {
+      return;
+    }
+    setLogoLoaded(false);
+    setLogoFailed(false);
+    setLogoReloadToken((token) => token + 1);
+  };
 
   const hasScreens = screens.length > 0;
   const isIos = project.platform === 'ios';
@@ -61,7 +115,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   const articleVariantClass = isIos
     ? 'bg-[#f1f1f1] px-6 pt-5 pb-5 mx-auto w-full max-w-[340px] rounded-[36px] place-self-center sm:max-w-[360px] sm:rounded-[40px]'
     : 'bg-[#f1f1f1] p-4 sm:p-5';
-  const previewBaseClass = 'group relative overflow-hidden rounded-[28px]';
+  const previewBaseClass = 'group relative rounded-[28px]';
   const previewVariantClass = isIos
     ? 'bg-[#f1f1f1] px-6 pt-6 pb-6 mx-auto w-full max-w-[280px] rounded-[32px] sm:px-8 sm:pt-8 sm:pb-8 sm:rounded-[36px] aspect-[9/19.5]'
     : 'bg-[#f1f1f1] p-3 sm:p-4 aspect-[16/10]';
@@ -123,10 +177,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       <div
         className={`${previewBaseClass} ${previewVariantClass}`}
       >
-        {hasScreens && screenUrl && !previewFailed ? (
+        {hasScreens && screenSrc ? (
           <div className="relative h-full w-full">
             {!previewLoaded ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gray-100">
                 <Skeleton.Image
                   active
                   style={{
@@ -139,12 +193,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
             ) : null}
 
             <img
-              src={screenUrl}
+              src={screenSrc}
               alt={`${project.name} preview ${activeScreenIndex + 1}`}
               loading="lazy"
               decoding="async"
+              ref={previewImgRef}
               className={`${previewImageClass} transition-opacity duration-300 ${
-                previewLoaded ? 'opacity-100' : 'opacity-0'
+                previewLoaded && !previewFailed ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={() => {
                 setPreviewLoaded(true);
@@ -154,10 +209,35 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
                 setPreviewFailed(true);
               }}
             />
+            {previewFailed ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100/95">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="text-sm text-gray-500">预览加载失败</span>
+                  <Button
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    onClick={handlePreviewReload}
+                  >
+                    重试
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
-            暂无预览
+            {hasScreens ? (
+              <div className="flex flex-col items-center gap-3">
+                <span className="text-sm text-gray-500">暂无有效预览</span>
+                {screenUrl ? (
+                  <Button size="small" icon={<ReloadOutlined />} onClick={handlePreviewReload}>
+                    重试
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              '暂无预览'
+            )}
           </div>
         )}
 
@@ -202,10 +282,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       </div>
 
       <div className={combineClassName('flex items-center gap-3', metaRowExtraClass)}>
-        {logoUrl && !logoFailed ? (
+        {logoSrc ? (
           <div className="relative h-12 w-12">
             {!logoLoaded ? (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <Skeleton.Avatar
                   active
                   size={48}
@@ -219,12 +299,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
               </div>
             ) : null}
             <img
-              src={logoUrl}
+              src={logoSrc}
               alt={`${project.appName} logo`}
               loading="lazy"
               decoding="async"
+              ref={logoImgRef}
               className={`h-12 w-12 rounded-2xl object-cover transition-opacity duration-300 ${
-                logoLoaded ? 'opacity-100' : 'opacity-0'
+                logoLoaded && !logoFailed ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={() => {
                 setLogoLoaded(true);
@@ -234,6 +315,18 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
                 setLogoFailed(true);
               }}
             />
+            {logoFailed ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-2xl bg-gray-100/95">
+                <span className="text-xs text-gray-500">Logo 加载失败</span>
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  onClick={handleLogoReload}
+                >
+                  重试
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-sm font-medium text-gray-500">
