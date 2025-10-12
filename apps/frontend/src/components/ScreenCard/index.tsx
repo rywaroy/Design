@@ -2,6 +2,7 @@ import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
 import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { appendImageResizeParam } from '../../lib/asset';
 import ImagePreviewModal from '../ImagePreviewModal';
 
 const combineClassName = (base: string, extra?: string) => {
@@ -9,28 +10,6 @@ const combineClassName = (base: string, extra?: string) => {
 };
 
 const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
-
-const appendImageResizeParam = (url: string, width: number) => {
-  const widthParamPattern = /imageView2\/2\/w\/\d+/;
-  const [base, hash] = url.split('#');
-  let updatedBase: string;
-
-  if (widthParamPattern.test(base)) {
-    updatedBase = base.replace(widthParamPattern, `imageView2/2/w/${width}`);
-  } else {
-    const hasQuery = base.includes('?');
-    let separator = '?';
-
-    if (hasQuery) {
-      separator = base.endsWith('?') || base.endsWith('&') ? '' : '&';
-    }
-
-    updatedBase = `${base}${separator}imageView2/2/w/${width}`;
-  }
-
-  const normalizedBase = updatedBase.replace(/\?&/, '?');
-  return hash ? `${normalizedBase}#${hash}` : normalizedBase;
-};
 
 export interface ScreenCardAction {
   key: string;

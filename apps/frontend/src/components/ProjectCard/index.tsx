@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { ArrowLeftOutlined, ArrowRightOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
 import type { Project } from '@design/shared-types';
-import { resolveAssetUrl } from '../../lib/asset';
+import { appendImageResizeParam, resolveAssetUrl } from '../../lib/asset';
 
 export interface ProjectCardProps {
   project: Project;
@@ -17,36 +17,12 @@ const combineClassName = (base: string, extra?: string) => {
 
 const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
 
-const appendImageResizeParam = (url: string, width: number) => {
-  const widthParamPattern = /imageView2\/2\/w\/\d+/;
-  const [base, hash] = url.split('#');
-  let updatedBase: string;
-
-  if (widthParamPattern.test(base)) {
-    updatedBase = base.replace(widthParamPattern, `imageView2/2/w/${width}`);
-  } else {
-    const hasQuery = base.includes('?');
-    let separator = '?';
-
-    if (hasQuery) {
-      separator = base.endsWith('?') || base.endsWith('&') ? '' : '&';
-    }
-
-    updatedBase = `${base}${separator}imageView2/2/w/${width}`;
-  }
-
-  const normalizedBase = updatedBase.replace(/\?&/, '?');
-  return hash ? `${normalizedBase}#${hash}` : normalizedBase;
-};
-
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }) => {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
-  const [logoFailed, setLogoFailed] = useState(false);
   const [previewReloadToken, setPreviewReloadToken] = useState(0);
-  const [logoReloadToken, setLogoReloadToken] = useState(0);
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
   const previewImgRef = useRef<HTMLImageElement | null>(null);
   const logoImgRef = useRef<HTMLImageElement | null>(null);
@@ -67,7 +43,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
     }
     return appendImageResizeParam(resolvedScreenUrl, previewWidth);
   }, [previewWidth, resolvedScreenUrl]);
-  const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
+  const resolvedLogoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
+  const logoUrl = useMemo(() => {
+    if (!resolvedLogoUrl) {
+      return null;
+    }
+    return appendImageResizeParam(resolvedLogoUrl, 100);
+  }, [resolvedLogoUrl]);
 
   const screenSrc = useMemo(() => {
     if (!screenUrl) {
@@ -80,16 +62,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
     return `${screenUrl}${connector}_r=${previewReloadToken}`;
   }, [previewReloadToken, screenUrl]);
 
-  const logoSrc = useMemo(() => {
-    if (!logoUrl) {
-      return null;
-    }
-    if (logoReloadToken === 0) {
-      return logoUrl;
-    }
-    const connector = logoUrl.includes('?') ? '&' : '?';
-    return `${logoUrl}${connector}_r=${logoReloadToken}`;
-  }, [logoReloadToken, logoUrl]);
+  const logoSrc = logoUrl;
 
   useEffect(() => {
     if (screenSrc) {
@@ -108,14 +81,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   useEffect(() => {
     if (logoSrc) {
       setLogoLoaded(false);
-      setLogoFailed(false);
       const img = logoImgRef.current;
       if (img?.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
         setLogoLoaded(true);
       }
     } else {
       setLogoLoaded(true);
-      setLogoFailed(true);
     }
   }, [logoSrc]);
 
@@ -127,16 +98,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
     setPreviewLoaded(false);
     setPreviewFailed(false);
     setPreviewReloadToken((token) => token + 1);
-  };
-
-  const handleLogoReload = (event: MouseEvent) => {
-    event.stopPropagation();
-    if (!logoUrl) {
-      return;
-    }
-    setLogoLoaded(false);
-    setLogoFailed(false);
-    setLogoReloadToken((token) => token + 1);
   };
 
   const hasScreens = screens.length > 0;
@@ -337,28 +298,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
               decoding="async"
               ref={logoImgRef}
               className={`h-12 w-12 rounded-2xl object-cover transition-opacity duration-300 ${
-                logoLoaded && !logoFailed ? 'opacity-100' : 'opacity-0'
+                logoLoaded ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={() => {
                 setLogoLoaded(true);
               }}
-              onError={() => {
-                setLogoLoaded(true);
-                setLogoFailed(true);
-              }}
             />
-            {logoFailed ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-2xl bg-gray-100/95">
-                <span className="text-xs text-gray-500">Logo 加载失败</span>
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={handleLogoReload}
-                >
-                  重试
-                </Button>
-              </div>
-            ) : null}
           </div>
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-sm font-medium text-gray-500">

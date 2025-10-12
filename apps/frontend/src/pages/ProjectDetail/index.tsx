@@ -5,7 +5,7 @@ import { LeftOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
 import { getProjectDetail } from '../../services/project';
 import { getProjectScreens, type ScreenListItem } from '../../services/screen';
-import { resolveAssetUrl } from '../../lib/asset';
+import { appendImageResizeParam, resolveAssetUrl } from '../../lib/asset';
 import ScreenCard, { type ScreenCardAction } from '../../components/ScreenCard';
 
 const SCREEN_PAGE_SIZE = 30;
@@ -151,6 +151,16 @@ const ProjectDetailPage: FC = () => {
       images: items.map((item) => item.url),
     };
   }, [screenState.items]);
+  const projectLogoUrl = useMemo(() => {
+    if (!project?.appLogoUrl) {
+      return null;
+    }
+    const resolved = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
+    if (!resolved) {
+      return null;
+    }
+    return appendImageResizeParam(resolved, 200);
+  }, [project?.appLogoUrl]);
   const mergeScreens = useCallback(
     (prevList: ScreenListItem[], nextItems: ScreenListItem[], replace?: boolean) => {
       if (replace) {
@@ -335,9 +345,9 @@ const ProjectDetailPage: FC = () => {
           <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
-                {project.appLogoUrl ? (
+                {projectLogoUrl ? (
                   <img
-                    src={resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl}
+                    src={projectLogoUrl}
                     alt={`${project.appName} logo`}
                     loading="lazy"
                     decoding="async"
