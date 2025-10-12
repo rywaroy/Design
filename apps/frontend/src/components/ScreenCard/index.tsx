@@ -1,13 +1,36 @@
 import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import ImagePreviewModal from '../ImagePreviewModal';
 
 const combineClassName = (base: string, extra?: string) => {
   return extra ? `${base} ${extra}` : base;
 };
 
 const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
+
+const appendImageResizeParam = (url: string, width: number) => {
+  const widthParamPattern = /imageView2\/2\/w\/\d+/;
+  const [base, hash] = url.split('#');
+  let updatedBase: string;
+
+  if (widthParamPattern.test(base)) {
+    updatedBase = base.replace(widthParamPattern, `imageView2/2/w/${width}`);
+  } else {
+    const hasQuery = base.includes('?');
+    let separator = '?';
+
+    if (hasQuery) {
+      separator = base.endsWith('?') || base.endsWith('&') ? '' : '&';
+    }
+
+    updatedBase = `${base}${separator}imageView2/2/w/${width}`;
+  }
+
+  const normalizedBase = updatedBase.replace(/\?&/, '?');
+  return hash ? `${normalizedBase}#${hash}` : normalizedBase;
+};
 
 export interface ScreenCardAction {
   key: string;
@@ -25,6 +48,10 @@ export interface ScreenCardProps {
   actions?: ScreenCardAction[];
   onClick?: () => void;
   variant?: ScreenCardVariant;
+  preview?: {
+    images: string[];
+    initialIndex?: number;
+  };
 }
 
 const variantClassMap: Record<ScreenCardVariant, { aspect: string; radius: string }> = {
@@ -45,27 +72,37 @@ const ScreenCard: FC<ScreenCardProps> = ({
   actions = [],
   onClick,
   variant = 'ios',
+  preview,
 }) => {
+  const variantWidth = variant === 'ios' ? 400 : 600;
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
-  const hasCover = Boolean(coverUrl);
   const clickable = typeof onClick === 'function';
-  const hasActions = actions.length > 0;
-  const variantConfig = variantClassMap[variant] ?? variantClassMap.ios;
-  const shouldShowCover = hasCover && !coverFailed;
+  const previewEnabled = Boolean(preview?.images?.length);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(preview?.initialIndex ?? 0);
   const coverImgRef = useRef<HTMLImageElement | null>(null);
-
-  const coverSrc = useMemo(() => {
+  const adjustedCoverUrl = useMemo(() => {
     if (!coverUrl) {
       return null;
     }
-    if (reloadToken === 0) {
-      return coverUrl;
+    return appendImageResizeParam(coverUrl, variantWidth);
+  }, [coverUrl, variantWidth]);
+  const hasCover = Boolean(adjustedCoverUrl);
+  const shouldShowCover = hasCover && !coverFailed;
+  const variantConfig = variantClassMap[variant] ?? variantClassMap.ios;
+
+  const coverSrc = useMemo(() => {
+    if (!adjustedCoverUrl) {
+      return null;
     }
-    const connector = coverUrl.includes('?') ? '&' : '?';
-    return `${coverUrl}${connector}_r=${reloadToken}`;
-  }, [coverUrl, reloadToken]);
+    if (reloadToken === 0) {
+      return adjustedCoverUrl;
+    }
+    const connector = adjustedCoverUrl.includes('?') ? '&' : '?';
+    return `${adjustedCoverUrl}${connector}_r=${reloadToken}`;
+  }, [adjustedCoverUrl, reloadToken]);
 
   useEffect(() => {
     if (coverSrc) {
@@ -83,7 +120,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
 
   const handleCoverReload = (event: MouseEvent) => {
     event.stopPropagation();
-    if (!coverUrl) {
+    if (!adjustedCoverUrl) {
       return;
     }
     setCoverLoaded(false);
@@ -99,12 +136,66 @@ const ScreenCard: FC<ScreenCardProps> = ({
     onClick?.();
   };
 
+  const resolvePreviewIndex = () => {
+    if (!previewEnabled) {
+      return 0;
+    }
+    const total = preview!.images.length;
+    if (total === 0) {
+      return 0;
+    }
+    if (typeof preview?.initialIndex === 'number') {
+      const index = preview.initialIndex;
+      if (index < 0) {
+        return 0;
+      }
+      if (index >= total) {
+        return total - 1;
+      }
+      return index;
+    }
+    if (adjustedCoverUrl) {
+      const foundIndex = preview!.images.findIndex((url) => url === adjustedCoverUrl);
+      if (foundIndex >= 0) {
+        return foundIndex;
+      }
+    }
+    return 0;
+  };
+
+  const handlePreview = () => {
+    if (!previewEnabled) {
+      return;
+    }
+    setPreviewIndex(resolvePreviewIndex());
+    setPreviewOpen(true);
+  };
+
+  const handlePreviewClose = () => {
+    setPreviewOpen(false);
+  };
+
+  const finalActions = previewEnabled
+    ? [
+        ...actions,
+        {
+          key: 'screen-card-preview',
+          label: '查看大图',
+          icon: <EyeOutlined />,
+          onClick: handlePreview,
+        },
+      ]
+    : actions;
+
+  const hasActions = finalActions.length > 0;
+
   return (
     <div
       className={combineClassName(
         `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius}`,
         className,
       )}
+      style={{ maxWidth: variantWidth }}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       onClick={() => onClick?.()}
@@ -167,7 +258,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
 
       {hasActions ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 bg-black/0 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:bg-black/35 group-hover:opacity-100">
-          {actions.map((action) => (
+          {finalActions.map((action) => (
             <button
               key={action.key}
               type="button"
@@ -182,6 +273,9 @@ const ScreenCard: FC<ScreenCardProps> = ({
             </button>
           ))}
         </div>
+      ) : null}
+      {previewEnabled ? (
+        <ImagePreviewModal open={previewOpen} images={preview!.images} initialIndex={previewIndex} onClose={handlePreviewClose} />
       ) : null}
     </div>
   );

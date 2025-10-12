@@ -17,6 +17,28 @@ const combineClassName = (base: string, extra?: string) => {
 
 const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
 
+const appendImageResizeParam = (url: string, width: number) => {
+  const widthParamPattern = /imageView2\/2\/w\/\d+/;
+  const [base, hash] = url.split('#');
+  let updatedBase: string;
+
+  if (widthParamPattern.test(base)) {
+    updatedBase = base.replace(widthParamPattern, `imageView2/2/w/${width}`);
+  } else {
+    const hasQuery = base.includes('?');
+    let separator = '?';
+
+    if (hasQuery) {
+      separator = base.endsWith('?') || base.endsWith('&') ? '' : '&';
+    }
+
+    updatedBase = `${base}${separator}imageView2/2/w/${width}`;
+  }
+
+  const normalizedBase = updatedBase.replace(/\?&/, '?');
+  return hash ? `${normalizedBase}#${hash}` : normalizedBase;
+};
+
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }) => {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
   const [previewLoaded, setPreviewLoaded] = useState(false);
@@ -28,6 +50,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
   const previewImgRef = useRef<HTMLImageElement | null>(null);
   const logoImgRef = useRef<HTMLImageElement | null>(null);
+  const isIos = project.platform === 'ios';
+  const previewWidth = isIos ? 300 : 600;
 
   useEffect(() => {
     setActiveScreenIndex(0);
@@ -36,7 +60,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   }, [project.projectId]);
 
   const currentScreen = screens[activeScreenIndex];
-  const screenUrl = resolveAssetUrl(currentScreen) ?? currentScreen ?? null;
+  const resolvedScreenUrl = resolveAssetUrl(currentScreen) ?? currentScreen ?? null;
+  const screenUrl = useMemo(() => {
+    if (!resolvedScreenUrl) {
+      return null;
+    }
+    return appendImageResizeParam(resolvedScreenUrl, previewWidth);
+  }, [previewWidth, resolvedScreenUrl]);
   const logoUrl = resolveAssetUrl(project.appLogoUrl) ?? project.appLogoUrl ?? null;
 
   const screenSrc = useMemo(() => {
@@ -110,15 +140,17 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   };
 
   const hasScreens = screens.length > 0;
-  const isIos = project.platform === 'ios';
   const articleBaseClass = 'flex flex-col gap-5 rounded-3xl shadow-sm ring-1 ring-gray-100';
   const articleVariantClass = isIos
     ? 'bg-[#f1f1f1] px-6 pt-5 pb-5 mx-auto w-full max-w-[340px] rounded-[36px] place-self-center sm:max-w-[360px] sm:rounded-[40px]'
     : 'bg-[#f1f1f1] p-4 sm:p-5';
-  const previewBaseClass = 'group relative rounded-[28px]';
+  const previewBaseClass = 'group relative w-full rounded-[28px]';
   const previewVariantClass = isIos
-    ? 'bg-[#f1f1f1] px-6 pt-6 pb-6 mx-auto w-full max-w-[280px] rounded-[32px] sm:px-8 sm:pt-8 sm:pb-8 sm:rounded-[36px] aspect-[9/19.5]'
-    : 'bg-[#f1f1f1] p-3 sm:p-4 aspect-[16/10]';
+    ? 'bg-[#f1f1f1] px-6 pt-6 pb-6 mx-auto rounded-[32px] sm:px-8 sm:pt-8 sm:pb-8 sm:rounded-[36px]'
+    : 'bg-[#f1f1f1] mx-auto p-3 sm:p-4';
+  const previewInnerClass = isIos
+    ? 'relative mx-auto w-full aspect-[9/19.5]'
+    : 'relative mx-auto w-full aspect-[16/10]';
 
   const metaRowExtraClass = isIos ? 'w-full px-2 sm:px-4' : undefined;
   const previewImageClass = isIos
@@ -174,72 +206,72 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
     >
-      <div
-        className={`${previewBaseClass} ${previewVariantClass}`}
-      >
-        {hasScreens && screenSrc ? (
-          <div className="relative h-full w-full">
-            {!previewLoaded ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gray-100">
-                <Skeleton.Image
-                  active
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: isIos ? 24 : 16,
-                  }}
-                />
-              </div>
-            ) : null}
-
-            <img
-              src={screenSrc}
-              alt={`${project.name} preview ${activeScreenIndex + 1}`}
-              loading="lazy"
-              decoding="async"
-              ref={previewImgRef}
-              className={`${previewImageClass} transition-opacity duration-300 ${
-                previewLoaded && !previewFailed ? 'opacity-100' : 'opacity-0'
-              }`}
-              onLoad={() => {
-                setPreviewLoaded(true);
-              }}
-              onError={() => {
-                setPreviewLoaded(true);
-                setPreviewFailed(true);
-              }}
-            />
-            {previewFailed ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100/95">
-                <div className="flex flex-col items-center gap-3">
-                  <span className="text-sm text-gray-500">预览加载失败</span>
-                  <Button
-                    size="small"
-                    icon={<ReloadOutlined />}
-                    onClick={handlePreviewReload}
-                  >
-                    重试
-                  </Button>
+      <div className={`${previewBaseClass} ${previewVariantClass}`}>
+        <div className={previewInnerClass} style={{ maxWidth: previewWidth }}>
+          {hasScreens && screenSrc ? (
+            <div className="relative h-full w-full">
+              {!previewLoaded ? (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gray-100">
+                  <Skeleton.Image
+                    active
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: isIos ? 24 : 16,
+                    }}
+                  />
                 </div>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
-            {hasScreens ? (
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-sm text-gray-500">暂无有效预览</span>
-                {screenUrl ? (
-                  <Button size="small" icon={<ReloadOutlined />} onClick={handlePreviewReload}>
-                    重试
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              '暂无预览'
-            )}
-          </div>
-        )}
+              ) : null}
+
+              <img
+                src={screenSrc}
+                alt={`${project.name} preview ${activeScreenIndex + 1}`}
+                loading="lazy"
+                decoding="async"
+                ref={previewImgRef}
+                className={`${previewImageClass} transition-opacity duration-300 ${
+                  previewLoaded && !previewFailed ? 'opacity-100' : 'opacity-0'
+                }`}
+                onLoad={() => {
+                  setPreviewLoaded(true);
+                }}
+                onError={() => {
+                  setPreviewLoaded(true);
+                  setPreviewFailed(true);
+                }}
+              />
+              {previewFailed ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/95">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-sm text-gray-500">预览加载失败</span>
+                    <Button
+                      size="small"
+                      icon={<ReloadOutlined />}
+                      onClick={handlePreviewReload}
+                    >
+                      重试
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
+              {hasScreens ? (
+                <div className="flex flex-col items-center gap-3">
+                  <span className="text-sm text-gray-500">暂无有效预览</span>
+                  {screenUrl ? (
+                    <Button size="small" icon={<ReloadOutlined />} onClick={handlePreviewReload}>
+                      重试
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                '暂无预览'
+              )}
+            </div>
+          )}
+        </div>
 
         {screens.length > 1 ? (
           <>
