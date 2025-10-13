@@ -1,7 +1,7 @@
 import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
-import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined, HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
 import { appendImageResizeParam } from '../../lib/asset';
 import ImagePreviewModal from '../ImagePreviewModal';
 
@@ -31,6 +31,9 @@ export interface ScreenCardProps {
     images: string[];
     initialIndex?: number;
   };
+  isFavorite?: boolean;
+  onToggleFavorite?: (next: boolean) => void;
+  favoritePending?: boolean;
 }
 
 const variantClassMap: Record<ScreenCardVariant, { aspect: string; radius: string }> = {
@@ -52,16 +55,22 @@ const ScreenCard: FC<ScreenCardProps> = ({
   onClick,
   variant = 'ios',
   preview,
+  isFavorite: isFavoriteProp,
+  onToggleFavorite,
+  favoritePending = false,
 }) => {
   const variantWidth = variant === 'ios' ? 400 : 600;
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [favoriteAnimating, setFavoriteAnimating] = useState(false);
   const clickable = typeof onClick === 'function';
   const previewEnabled = Boolean(preview?.images?.length);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(preview?.initialIndex ?? 0);
   const coverImgRef = useRef<HTMLImageElement | null>(null);
+  const favoriteAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFavorite = isFavoriteProp ?? false;
   const adjustedCoverUrl = useMemo(() => {
     if (!coverUrl) {
       return null;
@@ -154,6 +163,38 @@ const ScreenCard: FC<ScreenCardProps> = ({
     setPreviewOpen(false);
   };
 
+  const favoriteButtonVisibility = isFavorite
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100';
+
+  const triggerFavoriteAnimation = () => {
+    if (favoriteAnimationTimerRef.current) {
+      clearTimeout(favoriteAnimationTimerRef.current);
+    }
+    setFavoriteAnimating(true);
+    favoriteAnimationTimerRef.current = setTimeout(() => {
+      setFavoriteAnimating(false);
+      favoriteAnimationTimerRef.current = null;
+    }, 260);
+  };
+
+  const handleFavoriteClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (favoritePending) {
+      return;
+    }
+    triggerFavoriteAnimation();
+    onToggleFavorite?.(!isFavorite);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (favoriteAnimationTimerRef.current) {
+        clearTimeout(favoriteAnimationTimerRef.current);
+      }
+    };
+  }, []);
+
   const finalActions = previewEnabled
     ? [
         ...actions,
@@ -180,6 +221,20 @@ const ScreenCard: FC<ScreenCardProps> = ({
       onClick={() => onClick?.()}
       onKeyDown={handleKeyDown}
     >
+      <button
+        type="button"
+        aria-label={isFavorite ? '取消收藏页面' : '收藏页面'}
+        aria-pressed={isFavorite}
+        disabled={favoritePending}
+        className={`absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-lg shadow-lg transition-all duration-200 ${favoriteButtonVisibility} ${
+          favoritePending ? 'cursor-wait opacity-70' : 'hover:scale-110 active:scale-95'
+        } ${isFavorite ? '!text-[#ED3F27]' : 'text-gray-500'} ${
+          favoriteAnimating ? 'animate-favorite-bounce' : ''
+        }`}
+        onClick={handleFavoriteClick}
+      >
+        {isFavorite ? <HeartFilled /> : <HeartOutlined />}
+      </button>
       {shouldShowCover ? (
         <div className="relative h-full w-full">
           {!coverLoaded ? (

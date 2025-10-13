@@ -37,7 +37,7 @@ export class ScreenController {
   @ApiOperation({ summary: '根据项目查询页面列表' })
   @ApiPaginatedResponse(Screen, '查询成功')
   findByProject(@Request() req, @Query() query: ScreenListQueryDto) {
-    const userId = req.user.id ?? String(req.user._id);
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
     return this.screenService.findByProject(userId, query);
   }
 

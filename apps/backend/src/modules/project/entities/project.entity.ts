@@ -32,6 +32,9 @@ export class Project {
 
   @Prop({ type: [String], default: [] })
   keywords?: string[];
+
+  // 非持久化字段：标记当前用户是否收藏
+  isFavorite?: boolean;
 }
 
 export type ProjectDocument = HydratedDocument<Project>;

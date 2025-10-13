@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Segmented, Spin, Empty, BackTop } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
 import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
@@ -6,6 +6,10 @@ import { getProjects } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
 import { useNavigate } from 'react-router-dom';
 import { useProjectListContext } from '../../contexts/ProjectListContext';
+import {
+  favoriteProject,
+  unfavoriteProject,
+} from '../../services/favorite';
 
 const PAGE_SIZE = 30;
 
@@ -18,7 +22,7 @@ const secondaryFilters = ['最新', '最受欢迎', '高评分'];
 
 const useInfinityProjects = () => {
   const { state, setState } = useProjectListContext();
-  const { platform, projects, currentPage, hasMore, total, error, loading, scrollTop } = state;
+  const { platform, projects, currentPage, hasMore, total, loading, scrollTop } = state;
   const loadingRef = useRef(false);
   const requestIdRef = useRef(0);
   const mergeProjects = useCallback(
@@ -65,48 +69,33 @@ const useInfinityProjects = () => {
       setState((prev) => ({
         ...prev,
         loading: true,
-        error: null,
       }));
 
-      try {
-        const response = await getProjects({
-          page: params.page,
-          pageSize: PAGE_SIZE,
-          platform: targetPlatform,
-        });
-        const { items, total: totalItems } = response.data;
-        const nextPage = typeof params.page === 'number' ? params.page ?? 1 : Number(params.page ?? 1);
-        const totalCount = typeof totalItems === 'number' ? totalItems : Number(totalItems ?? 0);
+      const response = await getProjects({
+        page: params.page,
+        pageSize: PAGE_SIZE,
+        platform: targetPlatform,
+      });
+      const { items, total: totalItems } = response.data;
+      const nextPage = typeof params.page === 'number' ? params.page ?? 1 : Number(params.page ?? 1);
+      const totalCount = typeof totalItems === 'number' ? totalItems : Number(totalItems ?? 0);
 
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
-
-        setState((prev) => {
-          const nextProjects = mergeProjects(prev.projects, items, params.replace);
-          return {
-            ...prev,
-            projects: nextProjects,
-            currentPage: nextPage,
-            total: totalCount,
-            hasMore: nextPage * PAGE_SIZE < totalCount && items.length > 0,
-            loading: false,
-            error: null,
-          };
-        });
-      } catch (err) {
-        if (requestId === requestIdRef.current) {
-          setState((prev) => ({
-            ...prev,
-            loading: false,
-            error: (err as Error)?.message ?? '加载项目失败',
-          }));
-        }
-      } finally {
-        if (requestId === requestIdRef.current) {
-          loadingRef.current = false;
-        }
+      if (requestId !== requestIdRef.current) {
+        return;
       }
+
+      setState((prev) => {
+        const nextProjects = mergeProjects(prev.projects, items, params.replace);
+        return {
+          ...prev,
+          projects: nextProjects,
+          currentPage: nextPage,
+          total: totalCount,
+          hasMore: nextPage * PAGE_SIZE < totalCount && items.length > 0,
+          loading: false,
+        };
+      });
+      loadingRef.current = false;
     },
     [mergeProjects, platform, setState],
   );
@@ -142,7 +131,6 @@ const useInfinityProjects = () => {
           total: 0,
           hasMore: true,
           loading: false,
-          error: null,
           scrollTop: 0,
         };
       });
@@ -169,17 +157,29 @@ const useInfinityProjects = () => {
     [setState],
   );
 
+  const updateProjectFavorite = useCallback(
+    (projectId: string, nextFavorite: boolean) => {
+      setState((prev) => ({
+        ...prev,
+        projects: prev.projects.map((item) =>
+          item.projectId === projectId ? { ...item, isFavorite: nextFavorite } : item,
+        ),
+      }));
+    },
+    [setState],
+  );
+
   return {
     platform,
     projects,
     loading,
     hasMore,
     total,
-    error,
     loadMore,
     setPlatform,
     scrollTop,
     setScrollTop,
+    updateProjectFavorite,
   };
 };
 
@@ -188,8 +188,20 @@ const ProjectPage: React.FC = () => {
   const restoredScrollRef = useRef(false);
   const navigate = useNavigate();
   const backTopTarget = useCallback(() => window, []);
-  const { platform, projects, loading, hasMore, total, error, loadMore, setPlatform, scrollTop, setScrollTop } =
+  const {
+    platform,
+    projects,
+    loading,
+    hasMore,
+    total,
+    loadMore,
+    setPlatform,
+    scrollTop,
+    setScrollTop,
+    updateProjectFavorite,
+  } =
     useInfinityProjects();
+  const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
   const gridClassName = useMemo(() => {
     if (platform === 'ios') {
       return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3';
@@ -273,6 +285,32 @@ const ProjectPage: React.FC = () => {
     [navigate, setScrollTop],
   );
 
+  useEffect(() => {
+    setFavoritePending({});
+  }, [platform]);
+
+  const handleProjectFavoriteToggle = useCallback(
+    async (projectId: string, nextFavorite: boolean) => {
+      setFavoritePending((prev) => ({
+        ...prev,
+        [projectId]: true,
+      }));
+
+      if (nextFavorite) {
+        await favoriteProject(projectId);
+      } else {
+        await unfavoriteProject(projectId);
+      }
+      updateProjectFavorite(projectId, nextFavorite);
+      setFavoritePending((prev) => {
+        const nextState = { ...prev };
+        delete nextState[projectId];
+        return nextState;
+      });
+    },
+    [updateProjectFavorite],
+  );
+
   return (
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -309,6 +347,11 @@ const ProjectPage: React.FC = () => {
             key={project.projectId}
             project={project}
             onClick={handleProjectClick}
+            isFavorite={project.isFavorite ?? false}
+            favoritePending={Boolean(favoritePending[project.projectId])}
+            onToggleFavorite={(next) => {
+              void handleProjectFavoriteToggle(project.projectId, next);
+            }}
           />
         ))}
       </section>
@@ -320,12 +363,6 @@ const ProjectPage: React.FC = () => {
       <div className="flex justify-center">
         {loading ? <Spin tip="加载中" /> : null}
       </div>
-
-      {error ? (
-        <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      ) : null}
 
       {!hasMore && projects.length > 0 ? (
         <p className="text-center text-sm text-gray-400">

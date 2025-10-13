@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { ArrowLeftOutlined, ArrowRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  HeartFilled,
+  HeartOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
 import type { Project } from '@design/shared-types';
 import { appendImageResizeParam, resolveAssetUrl } from '../../lib/asset';
@@ -9,6 +15,9 @@ export interface ProjectCardProps {
   project: Project;
   className?: string;
   onClick?: (projectId: string) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (next: boolean) => void;
+  favoritePending?: boolean;
 }
 
 const combineClassName = (base: string, extra?: string) => {
@@ -17,17 +26,27 @@ const combineClassName = (base: string, extra?: string) => {
 
 const isActivationKey = (key: string) => key === 'Enter' || key === ' ';
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({
+  project,
+  className,
+  onClick,
+  isFavorite: isFavoriteProp,
+  onToggleFavorite,
+  favoritePending = false,
+}) => {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [previewReloadToken, setPreviewReloadToken] = useState(0);
+  const [favoriteAnimating, setFavoriteAnimating] = useState(false);
   const screens = useMemo(() => project.previewScreens ?? [], [project.previewScreens]);
   const previewImgRef = useRef<HTMLImageElement | null>(null);
   const logoImgRef = useRef<HTMLImageElement | null>(null);
+  const favoriteAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isIos = project.platform === 'ios';
   const previewWidth = isIos ? 300 : 600;
+  const isFavorite = isFavoriteProp ?? project.isFavorite ?? false;
 
   useEffect(() => {
     setActiveScreenIndex(0);
@@ -101,7 +120,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   };
 
   const hasScreens = screens.length > 0;
-  const articleBaseClass = 'flex flex-col gap-5 rounded-3xl shadow-sm ring-1 ring-gray-100';
+  const articleBaseClass = 'group flex flex-col gap-5 rounded-3xl shadow-sm ring-1 ring-gray-100';
   const articleVariantClass = isIos
     ? 'bg-[#f1f1f1] px-6 pt-5 pb-5 mx-auto w-full max-w-[340px] rounded-[36px] place-self-center sm:max-w-[360px] sm:rounded-[40px]'
     : 'bg-[#f1f1f1] p-4 sm:p-5';
@@ -158,6 +177,37 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
   const interactiveClassName = clickable
     ? 'cursor-pointer transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-800'
     : '';
+  const favoriteButtonVisibility = isFavorite
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100';
+
+  const triggerFavoriteAnimation = () => {
+    if (favoriteAnimationTimerRef.current) {
+      clearTimeout(favoriteAnimationTimerRef.current);
+    }
+    setFavoriteAnimating(true);
+    favoriteAnimationTimerRef.current = setTimeout(() => {
+      setFavoriteAnimating(false);
+      favoriteAnimationTimerRef.current = null;
+    }, 260);
+  };
+
+  const handleFavoriteClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (favoritePending) {
+      return;
+    }
+    triggerFavoriteAnimation();
+    onToggleFavorite?.(!isFavorite);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (favoriteAnimationTimerRef.current) {
+        clearTimeout(favoriteAnimationTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <article
@@ -168,6 +218,20 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, className, onClick }
       onKeyDown={handleCardKeyDown}
     >
       <div className={`${previewBaseClass} ${previewVariantClass}`}>
+        <button
+          type="button"
+          aria-label={isFavorite ? '取消收藏项目' : '收藏项目'}
+          aria-pressed={isFavorite}
+          disabled={favoritePending}
+          className={`absolute left-0 top-0 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-lg shadow-lg transition-all duration-200 ${favoriteButtonVisibility} ${
+            favoritePending ? 'cursor-wait opacity-70' : 'hover:scale-110 active:scale-95'
+          } ${isFavorite ? '!text-[#ED3F27]' : 'text-gray-500'} ${
+            favoriteAnimating ? 'animate-favorite-bounce' : ''
+          }`}
+          onClick={handleFavoriteClick}
+        >
+          {isFavorite ? <HeartFilled /> : <HeartOutlined />}
+        </button>
         <div className={previewInnerClass} style={{ maxWidth: previewWidth }}>
           {hasScreens && screenSrc ? (
             <div className="relative h-full w-full">

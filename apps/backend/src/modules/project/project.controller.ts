@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../../common/decorator/pagination.decorator';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
@@ -17,8 +17,9 @@ export class ProjectController {
   @Get()
   @ApiOperation({ summary: '项目列表' })
   @ApiPaginatedResponse(Project, '获取项目列表成功')
-  findAll(@Query() query: ProjectListQueryDto) {
-    return this.projectService.findAll(query);
+  findAll(@Request() req, @Query() query: ProjectListQueryDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.projectService.findAll(userId, query);
   }
 
   @Get('detail')
@@ -27,7 +28,8 @@ export class ProjectController {
     description: '获取项目详情成功',
     type: ProjectDetailResponseDto,
   })
-  findDetail(@Query() query: ProjectDetailQueryDto) {
-    return this.projectService.findDetail(query.projectId);
+  findDetail(@Request() req, @Query() query: ProjectDetailQueryDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.projectService.findDetail(userId, query.projectId);
   }
 }

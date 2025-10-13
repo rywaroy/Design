@@ -11,6 +11,7 @@ export interface Project {
   recommendedCount: number;
   appTagline?: string;
   keywords?: string[];
+  isFavorite?: boolean;
 }
 
 export interface Screen {

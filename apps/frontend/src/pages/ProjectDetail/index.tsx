@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackTop, Button, Empty, Spin, Tag } from 'antd';
-import { LeftOutlined } from '@ant-design/icons';
+import { HeartFilled, HeartOutlined, LeftOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
 import { getProjectDetail } from '../../services/project';
 import { getProjectScreens, type ScreenListItem } from '../../services/screen';
 import { appendImageResizeParam, resolveAssetUrl } from '../../lib/asset';
 import ScreenCard, { type ScreenCardAction } from '../../components/ScreenCard';
+import {
+  favoriteProject,
+  favoriteScreen,
+  unfavoriteProject,
+  unfavoriteScreen,
+} from '../../services/favorite';
+import { useProjectListContext } from '../../contexts/ProjectListContext';
 
 const SCREEN_PAGE_SIZE = 30;
 
@@ -28,7 +35,6 @@ interface ScreenState {
   page: number;
   pageSize: number;
   loading: boolean;
-  error: string | null;
   hasMore: boolean;
 }
 
@@ -37,7 +43,6 @@ const createInitialScreenState = (): ScreenState => ({
   page: 0,
   pageSize: SCREEN_PAGE_SIZE,
   loading: false,
-  error: null,
   hasMore: true,
 });
 
@@ -127,30 +132,36 @@ const ProjectDetailPage: FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
-  const [projectError, setProjectError] = useState<string | null>(null);
+  const [projectFavoritePending, setProjectFavoritePending] = useState(false);
+  const [projectFavoriteAnimating, setProjectFavoriteAnimating] = useState(false);
   const [screenState, setScreenState] = useState<ScreenState>(createInitialScreenState);
+  const [screenFavoritePending, setScreenFavoritePending] = useState<Record<string, boolean>>({});
   const screenRequestIdRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const backTopTarget = useCallback(() => window, []);
+  const projectFavoriteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { setState: setProjectListState } = useProjectListContext();
   const previewData = useMemo(() => {
-    const items = screenState.items
-      .map((item) => {
-        const url = resolveScreenCoverUrl(item);
-        if (!url) {
-          return null;
-        }
-        return {
-          screenId: item.screenId,
-          url,
-        };
-      })
-      .filter((value): value is { screenId: string; url: string } => Boolean(value));
+    const images: string[] = [];
+    const indexMap = new Map<string, number>();
+
+    screenState.items.forEach((item) => {
+      const url = resolveScreenCoverUrl(item);
+      if (!url) {
+        return;
+      }
+      indexMap.set(item.screenId, images.length);
+      images.push(url);
+    });
 
     return {
-      items,
-      images: items.map((item) => item.url),
+      images,
+      indexMap,
     };
   }, [screenState.items]);
+  const isInitialScreensLoading = screenState.loading && screenState.items.length === 0;
+  const isScreenListEmpty = !isInitialScreensLoading && screenState.items.length === 0;
+  const isLoadingMoreScreens = screenState.loading && screenState.items.length > 0;
   const projectLogoUrl = useMemo(() => {
     if (!project?.appLogoUrl) {
       return null;
@@ -188,6 +199,14 @@ const ProjectDetailPage: FC = () => {
     },
     [],
   );
+  const updateScreenFavorite = useCallback((screenId: string, nextFavorite: boolean) => {
+    setScreenState((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.screenId === screenId ? { ...item, isFavorite: nextFavorite } : item,
+      ),
+    }));
+  }, []);
 
   const handleBack = () => {
     navigate(-1);
@@ -195,14 +214,13 @@ const ProjectDetailPage: FC = () => {
 
   useEffect(() => {
     if (!projectId) {
-      setProjectError('缺少有效的项目 ID');
       setProjectLoading(false);
       return;
     }
 
     let active = true;
     setProjectLoading(true);
-    setProjectError(null);
+    setProject(null);
 
     getProjectDetail(projectId)
       .then((response) => {
@@ -210,12 +228,6 @@ const ProjectDetailPage: FC = () => {
           return;
         }
         setProject(response.data.project);
-      })
-      .catch((error) => {
-        if (!active) {
-          return;
-        }
-        setProjectError((error as Error)?.message ?? '加载项目详情失败');
       })
       .finally(() => {
         if (active) {
@@ -229,12 +241,11 @@ const ProjectDetailPage: FC = () => {
   }, [projectId]);
 
   const fetchScreens = useCallback(
-    (page: number, replace = false) => {
+    async (page: number, replace = false) => {
       if (!projectId) {
         setScreenState((prev) => ({
           ...prev,
           loading: false,
-          error: '缺少有效的项目 ID',
         }));
         return;
       }
@@ -245,50 +256,137 @@ const ProjectDetailPage: FC = () => {
       setScreenState((prev) => ({
         ...prev,
         loading: true,
-        error: null,
       }));
 
-      getProjectScreens({ projectId, page, pageSize: SCREEN_PAGE_SIZE })
-        .then((response) => {
-          if (screenRequestIdRef.current !== requestId) {
-            return;
-          }
+      const response = await getProjectScreens({ projectId, page, pageSize: SCREEN_PAGE_SIZE });
+      if (screenRequestIdRef.current !== requestId) {
+        return;
+      }
 
-          const { items, total, page: currentPage, pageSize } = response.data;
-          const parsedPage = typeof currentPage === 'number' ? currentPage : page;
-          const parsedPageSize =
-            typeof pageSize === 'number' && pageSize > 0 ? pageSize : SCREEN_PAGE_SIZE;
-          const totalCount = typeof total === 'number' ? total : 0;
-          const nextItems = items ?? [];
+      const { items, total, page: currentPage, pageSize } = response.data;
+      const parsedPage = typeof currentPage === 'number' ? currentPage : page;
+      const parsedPageSize =
+        typeof pageSize === 'number' && pageSize > 0 ? pageSize : SCREEN_PAGE_SIZE;
+      const totalCount = typeof total === 'number' ? total : 0;
+      const nextItems = items ?? [];
 
-          setScreenState((prev) => ({
-            items: mergeScreens(prev.items, nextItems, replace),
-            page: parsedPage,
-            pageSize: parsedPageSize,
-            loading: false,
-            error: null,
-            hasMore: parsedPage * parsedPageSize < totalCount && nextItems.length > 0,
-          }));
-        })
-        .catch((error) => {
-          if (screenRequestIdRef.current !== requestId) {
-            return;
-          }
-
-          setScreenState((prev) => ({
-            ...prev,
-            loading: false,
-            error: (error as Error)?.message ?? '加载页面列表失败',
-          }));
-        });
+      setScreenState((prev) => ({
+        items: mergeScreens(prev.items, nextItems, replace),
+        page: parsedPage,
+        pageSize: parsedPageSize,
+        loading: false,
+        hasMore: parsedPage * parsedPageSize < totalCount && nextItems.length > 0,
+      }));
     },
     [mergeScreens, projectId],
   );
 
   useEffect(() => {
     setScreenState(createInitialScreenState());
+    setScreenFavoritePending({});
     fetchScreens(1, true);
   }, [projectId, fetchScreens]);
+
+  const syncProjectFavoriteToList = useCallback(
+    (targetProjectId: string, nextFavorite: boolean) => {
+      setProjectListState((prev) => ({
+        ...prev,
+        projects: prev.projects.map((item) =>
+          item.projectId === targetProjectId
+            ? {
+                ...item,
+                isFavorite: nextFavorite,
+              }
+            : item,
+        ),
+      }));
+    },
+    [setProjectListState],
+  );
+
+  const triggerProjectFavoriteAnimation = useCallback(() => {
+    if (projectFavoriteTimerRef.current) {
+      clearTimeout(projectFavoriteTimerRef.current);
+    }
+    setProjectFavoriteAnimating(true);
+    projectFavoriteTimerRef.current = setTimeout(() => {
+      setProjectFavoriteAnimating(false);
+      projectFavoriteTimerRef.current = null;
+    }, 260);
+  }, []);
+
+  const handleProjectFavoriteToggle = useCallback(
+    async (nextFavorite: boolean) => {
+      if (!project) {
+        return;
+      }
+      const targetProjectId = project.projectId;
+      triggerProjectFavoriteAnimation();
+      setProjectFavoritePending(true);
+      try {
+        if (nextFavorite) {
+          await favoriteProject(targetProjectId);
+        } else {
+          await unfavoriteProject(targetProjectId);
+        }
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                isFavorite: nextFavorite,
+              }
+            : prev,
+        );
+        syncProjectFavoriteToList(targetProjectId, nextFavorite);
+      } catch (error) {
+        console.error('更新项目收藏状态失败', error);
+      } finally {
+        setProjectFavoritePending(false);
+      }
+    },
+    [project, syncProjectFavoriteToList, triggerProjectFavoriteAnimation],
+  );
+
+  const handleScreenFavoriteToggle = useCallback(
+    async (screenId: string, nextFavorite: boolean) => {
+      setScreenFavoritePending((prev) => ({
+        ...prev,
+        [screenId]: true,
+      }));
+
+      try {
+        if (nextFavorite) {
+          await favoriteScreen(screenId);
+        } else {
+          await unfavoriteScreen(screenId);
+        }
+        updateScreenFavorite(screenId, nextFavorite);
+      } catch (error) {
+        console.error('更新页面收藏状态失败', error);
+      } finally {
+        setScreenFavoritePending((prev) => {
+          const nextState = { ...prev };
+          delete nextState[screenId];
+          return nextState;
+        });
+      }
+    },
+    [updateScreenFavorite],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (projectFavoriteTimerRef.current) {
+        clearTimeout(projectFavoriteTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (project) {
+      syncProjectFavoriteToList(project.projectId, project.isFavorite ?? false);
+    }
+  }, [project, syncProjectFavoriteToList]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -337,10 +435,6 @@ const ProjectDetailPage: FC = () => {
           <div className="flex min-h-[200px] items-center justify-center">
             <Spin tip="加载项目详情" />
           </div>
-        ) : projectError ? (
-          <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-            {projectError}
-          </div>
         ) : project ? (
           <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -359,7 +453,25 @@ const ProjectDetailPage: FC = () => {
                   </div>
                 )}
                 <div className="space-y-1">
-                  <h1 className="text-2xl font-semibold text-gray-900">{project.appName}</h1>
+                  <div className="flex items-start gap-3">
+                    <h1 className="text-2xl font-semibold text-gray-900">{project.appName}</h1>
+                    <button
+                      type="button"
+                      aria-label={project.isFavorite ? '取消收藏项目' : '收藏项目'}
+                      aria-pressed={project.isFavorite}
+                      disabled={projectFavoritePending}
+                      className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg shadow-sm transition-all duration-200 ${
+                        project.isFavorite ? '!text-[#ED3F27]' : 'text-gray-500'
+                      } ${
+                        projectFavoritePending ? 'cursor-wait opacity-70' : 'hover:scale-110 active:scale-95'
+                      } ${projectFavoriteAnimating ? 'animate-favorite-bounce' : ''}`}
+                      onClick={() => {
+                        void handleProjectFavoriteToggle(!(project.isFavorite ?? false));
+                      }}
+                    >
+                      {project.isFavorite ? <HeartFilled /> : <HeartOutlined />}
+                    </button>
+                  </div>
                   <p className="text-sm text-gray-500">{getPlatformLabel(project.platform)}</p>
                 </div>
               </div>
@@ -387,15 +499,11 @@ const ProjectDetailPage: FC = () => {
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 lg:p-8">
         <h2 className="text-xl font-semibold text-gray-900">页面列表</h2>
 
-        {screenState.loading && screenState.items.length === 0 ? (
+        {isInitialScreensLoading ? (
           <div className="flex min-h-[200px] items-center justify-center">
             <Spin tip="加载页面列表" />
           </div>
-        ) : screenState.error && screenState.items.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-            {screenState.error}
-          </div>
-        ) : screenState.items.length === 0 ? (
+        ) : isScreenListEmpty ? (
           <Empty description="暂无页面" className="py-16" />
         ) : (
           <>
@@ -408,9 +516,9 @@ const ProjectDetailPage: FC = () => {
                 const cardClassName = isWeb
                   ? 'lg:col-span-3'
                   : 'lg:col-span-2';
-                const previewEntryIndex = previewData.items.findIndex((item) => item.screenId === screen.screenId);
+                const previewEntryIndex = previewData.indexMap.get(screen.screenId);
                 const previewConfig =
-                  previewEntryIndex >= 0
+                  typeof previewEntryIndex === 'number'
                     ? {
                         images: previewData.images,
                         initialIndex: previewEntryIndex,
@@ -426,22 +534,22 @@ const ProjectDetailPage: FC = () => {
                     variant={variant}
                     className={cardClassName}
                     preview={previewConfig}
+                    isFavorite={screen.isFavorite ?? false}
+                    favoritePending={Boolean(screenFavoritePending[screen.screenId])}
+                    onToggleFavorite={(next) => {
+                      void handleScreenFavoriteToggle(screen.screenId, next);
+                    }}
                   />
                 );
               })}
             </div>
-            {screenState.error ? (
-              <div className="mt-4 rounded-2xl bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-                {screenState.error}
-              </div>
-            ) : null}
-            {screenState.loading ? (
+            {isLoadingMoreScreens ? (
               <div className="mt-4 flex justify-center text-sm text-gray-500">
                 <Spin size="small" />
                 <span className="ml-2">加载中...</span>
               </div>
             ) : null}
-            {!screenState.hasMore && !screenState.loading ? (
+            {!screenState.hasMore && !isInitialScreensLoading && !isLoadingMoreScreens ? (
               <p className="mt-6 text-center text-sm text-gray-400">已经到底啦</p>
             ) : null}
           </>
