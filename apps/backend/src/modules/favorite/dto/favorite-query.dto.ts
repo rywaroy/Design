@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsIn, IsOptional, Max, Min } from 'class-validator';
 
 export class FavoriteQueryDto {
   @ApiPropertyOptional({ description: '当前页码', default: 1 })
@@ -17,4 +17,9 @@ export class FavoriteQueryDto {
   @Min(1)
   @Max(100)
   pageSize = 10;
+
+  @ApiPropertyOptional({ description: '平台筛选', enum: ['ios', 'web'] })
+  @IsOptional()
+  @IsIn(['ios', 'web'])
+  platform?: 'ios' | 'web';
 }

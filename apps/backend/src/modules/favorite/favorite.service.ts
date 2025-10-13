@@ -99,45 +99,48 @@ export class FavoriteService {
     userId: string,
     query: FavoriteQueryDto,
   ): Promise<PaginationDto<Project>> {
-    const { page = 1, pageSize = 10 } = query;
+    const { page = 1, pageSize = 10, platform } = query;
     const skip = (page - 1) * pageSize;
     const filter = {
       userId,
       targetType: FavoriteTargetType.PROJECT,
     };
 
-    const [favorites, total] = await Promise.all([
-      this.favoriteModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(pageSize)
-        .lean()
-        .exec(),
-      this.favoriteModel.countDocuments(filter).exec(),
-    ]);
+    const favorites = await this.favoriteModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
 
     if (!favorites.length) {
       return {
         items: [],
-        total,
+        total: 0,
         page,
         pageSize,
       };
     }
 
     const projectIds = favorites.map((favorite) => favorite.targetId);
-    const projects = await this.projectModel
-      .find({ projectId: { $in: projectIds } })
-      .lean()
-      .exec();
+    const projectQuery: Record<string, unknown> = {
+      projectId: { $in: projectIds },
+    };
+    if (platform) {
+      projectQuery.platform = platform;
+    }
+    const projects = await this.projectModel.find(projectQuery).lean().exec();
     const projectMap = new Map(
       projects.map((project) => [project.projectId, project]),
     );
 
-    const items = projectIds
+    const filteredItems = projectIds
       .map((projectId) => projectMap.get(projectId))
-      .filter(Boolean);
+      .filter(Boolean) as Project[];
+    const total = filteredItems.length;
+    const items = filteredItems.slice(skip, skip + pageSize).map((project) => ({
+      ...project,
+      isFavorite: true,
+    }));
 
     return {
       items,
@@ -151,45 +154,48 @@ export class FavoriteService {
     userId: string,
     query: FavoriteQueryDto,
   ): Promise<PaginationDto<Screen>> {
-    const { page = 1, pageSize = 10 } = query;
+    const { page = 1, pageSize = 10, platform } = query;
     const skip = (page - 1) * pageSize;
     const filter = {
       userId,
       targetType: FavoriteTargetType.SCREEN,
     };
 
-    const [favorites, total] = await Promise.all([
-      this.favoriteModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(pageSize)
-        .lean()
-        .exec(),
-      this.favoriteModel.countDocuments(filter).exec(),
-    ]);
+    const favorites = await this.favoriteModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
 
     if (!favorites.length) {
       return {
         items: [],
-        total,
+        total: 0,
         page,
         pageSize,
       };
     }
 
     const screenIds = favorites.map((favorite) => favorite.targetId);
-    const screens = await this.screenModel
-      .find({ screenId: { $in: screenIds } })
-      .lean()
-      .exec();
+    const screenQuery: Record<string, unknown> = {
+      screenId: { $in: screenIds },
+    };
+    if (platform) {
+      screenQuery.platform = platform;
+    }
+    const screens = await this.screenModel.find(screenQuery).lean().exec();
     const screenMap = new Map(
       screens.map((screen) => [screen.screenId, screen]),
     );
 
-    const items = screenIds
+    const filteredItems = screenIds
       .map((screenId) => screenMap.get(screenId))
-      .filter(Boolean);
+      .filter(Boolean) as Screen[];
+    const total = filteredItems.length;
+    const items = filteredItems.slice(skip, skip + pageSize).map((screen) => ({
+      ...screen,
+      isFavorite: true,
+    }));
 
     return {
       items,

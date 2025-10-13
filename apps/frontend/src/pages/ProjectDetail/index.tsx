@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackTop, Button, Empty, Spin, Tag } from 'antd';
-import { HeartFilled, HeartOutlined, LeftOutlined } from '@ant-design/icons';
+import { DownloadOutlined, HeartFilled, HeartOutlined, LeftOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
 import { getProjectDetail } from '../../services/project';
 import { getProjectScreens, type ScreenListItem } from '../../services/screen';
@@ -117,6 +117,7 @@ const buildScreenActions = (screen: ScreenListItem): ScreenCardAction[] => {
       actions.push({
         key: `${screen.screenId}-source`,
         label: '下载原图',
+        icon: <DownloadOutlined />,
         onClick: () => {
           void downloadFile(originalUrl);
         },

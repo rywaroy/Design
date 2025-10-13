@@ -6,9 +6,11 @@ import './index.css';
 import LoginPage from './pages/Login';
 import ProjectPage from './pages/Project';
 import ProjectDetailPage from './pages/ProjectDetail';
+import FavoritePage from './pages/Favorite';
 import DefaultLayout from './layout/Default';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProjectListProvider } from './contexts/ProjectListContext';
+import { FavoriteProvider } from './contexts/FavoriteContext';
 
 const Root = () => (
   <ConfigProvider
@@ -32,15 +34,18 @@ const Root = () => (
     <AntApp>
       <AuthProvider>
         <ProjectListProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route element={<DefaultLayout />}>
-                <Route path="/" element={<ProjectPage />} />
-                <Route path="/project/:projectId" element={<ProjectDetailPage />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+          <FavoriteProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route element={<DefaultLayout />}>
+                  <Route path="/" element={<ProjectPage />} />
+                  <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="/favorite" element={<FavoritePage />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </FavoriteProvider>
         </ProjectListProvider>
       </AuthProvider>
     </AntApp>

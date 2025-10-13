@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined } from '@ant-design/icons';
@@ -62,7 +62,8 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, images, initialIn
     return images[clampIndex(currentIndex, images.length)];
   }, [currentIndex, images]);
 
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback((event?: ReactMouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation();
     onClose();
   }, [onClose]);
 
@@ -115,7 +116,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, images, initialIn
         <button
           type="button"
           aria-label="关闭预览"
-          className="absolute right-6 top-6 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-gray-600 transition hover:bg-black/10"
+          className="absolute right-6 top-6 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-gray-600 transition hover:bg-black/10 cursor-pointer"
           onClick={handleClose}
         >
           <CloseOutlined className="text-base" />
@@ -136,7 +137,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, images, initialIn
                 <button
                   type="button"
                   aria-label="上一张"
-                  className="pointer-events-auto flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white"
+                  className="pointer-events-auto flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
                   onClick={handlePrev}
                 >
                   <ArrowLeftOutlined className="text-lg" />
@@ -146,7 +147,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, images, initialIn
                 <button
                   type="button"
                   aria-label="下一张"
-                  className="pointer-events-auto flex h-12 w-12 translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white"
+                  className="pointer-events-auto flex h-12 w-12 translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
                   onClick={handleNext}
                 >
                   <ArrowRightOutlined className="text-lg" />

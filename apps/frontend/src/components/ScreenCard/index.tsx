@@ -1,7 +1,7 @@
 import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
-import { EyeOutlined, HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
+import { HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
 import { appendImageResizeParam } from '../../lib/asset';
 import ImagePreviewModal from '../ImagePreviewModal';
 
@@ -64,8 +64,8 @@ const ScreenCard: FC<ScreenCardProps> = ({
   const [coverFailed, setCoverFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [favoriteAnimating, setFavoriteAnimating] = useState(false);
-  const clickable = typeof onClick === 'function';
   const previewEnabled = Boolean(preview?.images?.length);
+  const clickable = typeof onClick === 'function' || previewEnabled;
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(preview?.initialIndex ?? 0);
   const coverImgRef = useRef<HTMLImageElement | null>(null);
@@ -121,6 +121,9 @@ const ScreenCard: FC<ScreenCardProps> = ({
       return;
     }
     event.preventDefault();
+    if (previewEnabled) {
+      handlePreview();
+    }
     onClick?.();
   };
 
@@ -159,6 +162,13 @@ const ScreenCard: FC<ScreenCardProps> = ({
     setPreviewOpen(true);
   };
 
+  const handleCardClick = () => {
+    if (previewEnabled) {
+      handlePreview();
+    }
+    onClick?.();
+  };
+
   const handlePreviewClose = () => {
     setPreviewOpen(false);
   };
@@ -195,30 +205,19 @@ const ScreenCard: FC<ScreenCardProps> = ({
     };
   }, []);
 
-  const finalActions = previewEnabled
-    ? [
-        ...actions,
-        {
-          key: 'screen-card-preview',
-          label: '查看大图',
-          icon: <EyeOutlined />,
-          onClick: handlePreview,
-        },
-      ]
-    : actions;
-
+  const finalActions = actions;
   const hasActions = finalActions.length > 0;
 
   return (
     <div
       className={combineClassName(
-        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius}`,
+        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius} ${clickable ? 'cursor-pointer' : ''}`,
         className,
       )}
       style={{ maxWidth: variantWidth }}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
-      onClick={() => onClick?.()}
+      onClick={handleCardClick}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -227,7 +226,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
         aria-pressed={isFavorite}
         disabled={favoritePending}
         className={`absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-lg shadow-lg transition-all duration-200 ${favoriteButtonVisibility} ${
-          favoritePending ? 'cursor-wait opacity-70' : 'hover:scale-110 active:scale-95'
+          favoritePending ? 'cursor-wait opacity-70' : 'cursor-pointer hover:scale-110 active:scale-95'
         } ${isFavorite ? '!text-[#ED3F27]' : 'text-gray-500'} ${
           favoriteAnimating ? 'animate-favorite-bounce' : ''
         }`}
@@ -291,19 +290,20 @@ const ScreenCard: FC<ScreenCardProps> = ({
       )}
 
       {hasActions ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 bg-black/0 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:bg-black/35 group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-3 pb-4 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
           {finalActions.map((action) => (
             <button
               key={action.key}
               type="button"
-              className="pointer-events-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-white"
+              aria-label={action.label}
+              className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-lg text-gray-700 shadow-md transition hover:bg-white cursor-pointer"
               onClick={(event) => {
                 event.stopPropagation();
                 action.onClick();
               }}
             >
-              {action.icon ?? null}
-              <span>{action.label}</span>
+              {action.icon ?? <span className="text-sm font-medium">{action.label}</span>}
+              {action.icon ? <span className="sr-only">{action.label}</span> : null}
             </button>
           ))}
         </div>

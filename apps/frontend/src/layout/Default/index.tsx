@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { App as AntApp, Button, Menu, Spin } from 'antd';
+import { App as AntApp, Button, Dropdown, Menu, Spin } from 'antd';
+import type { MenuProps } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AuthUser } from '../../contexts/AuthContext';
 
@@ -32,6 +34,7 @@ interface HeaderBarProps {
   activeMenuKey: HeaderMenuKey;
   onMenuClick: (key: HeaderMenuKey) => void;
   onLogout: () => Promise<void>;
+  onOpenFavorite: () => void;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -39,7 +42,25 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   activeMenuKey,
   onMenuClick,
   onLogout,
+  onOpenFavorite,
 }) => {
+  const userMenuItems: MenuProps['items'] = [
+    { key: 'favorite', label: '我的收藏' },
+    { type: 'divider' },
+    { key: 'logout', label: '退出登录' },
+  ];
+
+  const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'favorite') {
+      onOpenFavorite();
+      return;
+    }
+
+    if (key === 'logout') {
+      void onLogout();
+    }
+  };
+
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-6">
@@ -55,16 +76,17 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             className="min-w-[200px] border-0 bg-transparent"
           />
         </div>
-        <div className="flex flex-1 items-center justify-end gap-4 text-sm text-gray-600">
-          <span>你好，{user.username}</span>
-          <Button
-            size="small"
-            onClick={() => {
-              void onLogout();
-            }}
+        <div className="flex flex-1 items-center justify-end text-sm text-gray-600">
+          <Dropdown
+            menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
+            placement="bottomRight"
+            trigger={['click']}
           >
-            退出登录
-          </Button>
+            <Button type="text" className="flex items-center gap-1 text-sm text-gray-700">
+              <span>你好，{user.username}</span>
+              <DownOutlined className="text-xs" />
+            </Button>
+          </Dropdown>
         </div>
       </div>
     </header>
@@ -150,6 +172,10 @@ const DefaultLayout: React.FC = () => {
     message.info(`${target.label} 功能即将上线`);
   };
 
+  const handleOpenFavorite = () => {
+    navigate('/favorite');
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <HeaderBar
@@ -157,6 +183,7 @@ const DefaultLayout: React.FC = () => {
         activeMenuKey={activeMenuKey}
         onMenuClick={handleMenuClick}
         onLogout={handleLogout}
+        onOpenFavorite={handleOpenFavorite}
       />
 
       <main className="flex flex-1 justify-center">
