@@ -34,6 +34,7 @@ export interface ScreenCardProps {
   isFavorite?: boolean;
   onToggleFavorite?: (next: boolean) => void;
   favoritePending?: boolean;
+  isRecommended?: boolean;
 }
 
 const variantClassMap: Record<ScreenCardVariant, { aspect: string; radius: string }> = {
@@ -58,6 +59,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
   isFavorite: isFavoriteProp,
   onToggleFavorite,
   favoritePending = false,
+  isRecommended = false,
 }) => {
   const variantWidth = variant === 'ios' ? 400 : 600;
   const [coverLoaded, setCoverLoaded] = useState(false);
@@ -211,7 +213,9 @@ const ScreenCard: FC<ScreenCardProps> = ({
   return (
     <div
       className={combineClassName(
-        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius} ${clickable ? 'cursor-pointer' : ''}`,
+        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius} ${clickable ? 'cursor-pointer' : ''} border-2 border-transparent ${
+          isRecommended ? 'border-yellow-400' : ''
+        }`,
         className,
       )}
       style={{ maxWidth: variantWidth }}
@@ -234,6 +238,11 @@ const ScreenCard: FC<ScreenCardProps> = ({
       >
         {isFavorite ? <HeartFilled /> : <HeartOutlined />}
       </button>
+      {isRecommended ? (
+        <span className="absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs font-semibold text-yellow-900 shadow-md">
+          AI 推荐
+        </span>
+      ) : null}
       {shouldShowCover ? (
         <div className="relative h-full w-full">
           {!coverLoaded ? (

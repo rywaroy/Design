@@ -535,6 +535,7 @@ const ProjectDetailPage: FC = () => {
                     variant={variant}
                     className={cardClassName}
                     preview={previewConfig}
+                    isRecommended={Boolean(screen.isRecommended)}
                     isFavorite={screen.isFavorite ?? false}
                     favoritePending={Boolean(screenFavoritePending[screen.screenId])}
                     onToggleFavorite={(next) => {
