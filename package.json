@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "pnpm -r --parallel --filter ./apps/** run dev"
+    "dev": "pnpm -r --parallel --filter ./apps/** run dev",
+    "dev:f": "pnpm --filter design-frontend dev",
+    "dev:b": "pnpm --filter design-backend dev"
   }
 }
