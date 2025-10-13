@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../../common/decorator/pagination.decorator';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
@@ -6,8 +6,10 @@ import { ProjectDetailQueryDto } from './dto/project-detail-query.dto';
 import { ProjectDetailResponseDto } from './dto/project-detail-response.dto';
 import { ProjectService } from './project.service';
 import { Project } from './entities/project.entity';
+import { AuthGuard } from '../../common/guards/auth.guard';
 
 @ApiTags('项目')
+@UseGuards(AuthGuard)
 @Controller('project')
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}

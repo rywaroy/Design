@@ -12,6 +12,7 @@ import { FileModule } from './modules/file/file.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ProjectModule } from './modules/project/project.module';
 import { ScreenModule } from './modules/screen/screen.module';
+import { FavoriteModule } from './modules/favorite/favorite.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { ScreenModule } from './modules/screen/screen.module';
     FileModule,
     ProjectModule,
     ScreenModule,
+    FavoriteModule,
     RedisModule,
   ],
   controllers: [AppController],

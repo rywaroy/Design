@@ -10,6 +10,11 @@ import { ScreenPreciseSearchQueryDto } from './dto/screen-precise-search-query.d
 import { ScreenSearchResultDto } from './dto/screen-search-result.dto';
 import { Screen, ScreenDocument } from './entities/screen.entity';
 import {
+  Favorite,
+  FavoriteDocument,
+  FavoriteTargetType,
+} from '../favorite/entities/favorite.entity';
+import {
   appCategoryData,
   collectSecondLevelNames,
   componentIndexData,
@@ -34,9 +39,12 @@ export class ScreenService {
   constructor(
     @InjectModel(Screen.name)
     private readonly screenModel: Model<ScreenDocument>,
+    @InjectModel(Favorite.name)
+    private readonly favoriteModel: Model<FavoriteDocument>,
   ) {}
 
   async findByProject(
+    userId: string,
     query: ScreenListQueryDto,
   ): Promise<PaginationDto<Screen>> {
     const { projectId, page = 1, pageSize = 20 } = query;
@@ -58,8 +66,24 @@ export class ScreenService {
       this.screenModel.countDocuments(filter).exec(),
     ]);
 
+    const favorites = await this.favoriteModel
+      .find({
+        userId,
+        targetType: FavoriteTargetType.SCREEN,
+        targetId: { $in: items.map((item) => item.screenId) },
+      })
+      .select('targetId')
+      .lean()
+      .exec();
+    const favoriteIds = new Set(favorites.map((favorite) => favorite.targetId));
+
+    const itemsWithFavorite = items.map((item) => ({
+      ...item,
+      isFavorite: favoriteIds.has(item.screenId),
+    }));
+
     return {
-      items,
+      items: itemsWithFavorite,
       total,
       page,
       pageSize,

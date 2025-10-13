@@ -87,6 +87,9 @@ export class Screen {
 
   @Prop()
   updatedAt?: Date;
+
+  // 非持久化字段：标记当前用户是否收藏
+  isFavorite?: boolean;
 }
 
 export type ScreenDocument = HydratedDocument<Screen>;

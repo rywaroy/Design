@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../../common/decorator/pagination.decorator';
 import { ScreenListQueryDto } from './dto/screen-list-query.dto';
@@ -14,6 +22,7 @@ import {
 import { ScreenService } from './screen.service';
 import { Screen } from './entities/screen.entity';
 import { ScreenAiService } from './screen-ai.service';
+import { AuthGuard } from '../../common/guards/auth.guard';
 
 @ApiTags('页面')
 @Controller('screen')
@@ -23,11 +32,13 @@ export class ScreenController {
     private readonly screenAiService: ScreenAiService,
   ) {}
 
+  @UseGuards(AuthGuard)
   @Get()
   @ApiOperation({ summary: '根据项目查询页面列表' })
   @ApiPaginatedResponse(Screen, '查询成功')
-  findByProject(@Query() query: ScreenListQueryDto) {
-    return this.screenService.findByProject(query);
+  findByProject(@Request() req, @Query() query: ScreenListQueryDto) {
+    const userId = req.user.id ?? String(req.user._id);
+    return this.screenService.findByProject(userId, query);
   }
 
   @Get('filters')

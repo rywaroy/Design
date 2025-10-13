@@ -18,6 +18,7 @@ export interface Screen {
   projectId: string;
   originalUrl?: string;       // 原始源链接
   isAiRecommended?: boolean;  // 是否为 AI 推荐
+  isFavorite?: boolean;       // 是否为当前用户收藏
   aiAnalysis?: Record<string, unknown>; // 预留 AI 分析结构
   pageType?: string[];
   tagsStyle?: string[];

@@ -12,6 +12,7 @@ export interface ScreenListItem {
   projectId: string;
   url?: string;
   originalUrl?: string;
+  isFavorite?: boolean;
   isRecommended?: boolean;
   pageType?: string;
   pageTypeL2?: string;
