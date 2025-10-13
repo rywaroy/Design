@@ -7,6 +7,7 @@ import type { ProjectListItem } from '../../services/project';
 import type { ScreenListItem } from '../../services/screen';
 import ProjectCard from '../../components/ProjectCard';
 import ScreenCard, { type ScreenCardAction } from '../../components/ScreenCard';
+import type { ScreenPreviewItem } from '../../components/ImagePreviewModal';
 import {
   favoriteProject,
   favoriteScreen,
@@ -198,7 +199,7 @@ const FavoritePage: React.FC = () => {
   const [screenFavoritePending, setScreenFavoritePending] = useState<Record<string, boolean>>({});
 
   const screenPreviewData = useMemo(() => {
-    const images: string[] = [];
+    const previewScreens: ScreenPreviewItem[] = [];
     const indexMap = new Map<string, number>();
 
     screen.items.forEach((item) => {
@@ -206,12 +207,15 @@ const FavoritePage: React.FC = () => {
       if (!url) {
         return;
       }
-      indexMap.set(item.screenId, images.length);
-      images.push(url);
+      indexMap.set(item.screenId, previewScreens.length);
+      previewScreens.push({
+        ...item,
+        previewUrl: url,
+      });
     });
 
     return {
-      images,
+      screens: previewScreens,
       indexMap,
     };
   }, [screen.items]);
@@ -637,11 +641,11 @@ const FavoritePage: React.FC = () => {
             const cardClassName = isWeb ? 'lg:col-span-3' : 'lg:col-span-2';
             const actions = buildScreenActions(item);
             const previewEntryIndex = screenPreviewData.indexMap.get(item.screenId);
-            const previewImages = screenPreviewData.images;
+            const previewScreens = screenPreviewData.screens;
             const previewConfig =
-              previewImages.length > 0
+              previewScreens.length > 0
                 ? {
-                    images: previewImages,
+                    screens: previewScreens,
                     initialIndex:
                       typeof previewEntryIndex === 'number' ? previewEntryIndex : undefined,
                   }

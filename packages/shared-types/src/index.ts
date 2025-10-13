@@ -17,6 +17,7 @@ export interface Project {
 export interface Screen {
   screenId: string;
   projectId: string;
+  order?: number;             // 在项目内的排序序号
   originalUrl?: string;       // 原始源链接
   isAiRecommended?: boolean;  // 是否为 AI 推荐
   isFavorite?: boolean;       // 是否为当前用户收藏

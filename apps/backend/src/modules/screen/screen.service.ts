@@ -58,7 +58,7 @@ export class ScreenService {
     const [items, total] = await Promise.all([
       this.screenModel
         .find(filter)
-        .sort({ isRecommended: -1, createdAt: -1 })
+        .sort({ order: 1, createdAt: -1 })
         .skip(skip)
         .limit(pageSize)
         .lean()
@@ -182,7 +182,7 @@ export class ScreenService {
     const [items, total] = await Promise.all([
       this.screenModel
         .find(filter)
-        .sort({ isRecommended: -1, createdAt: -1 })
+        .sort({ isRecommended: -1, order: 1, createdAt: -1 })
         .skip(skip)
         .limit(pageSize)
         .lean()
@@ -344,6 +344,13 @@ export class ScreenService {
         }
         if (a.isRecommended !== b.isRecommended) {
           return a.isRecommended ? -1 : 1;
+        }
+        const orderA =
+          typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+        const orderB =
+          typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) {
+          return orderA - orderB;
         }
         const aDate = a.updatedAt ?? a.createdAt ?? 0;
         const bDate = b.updatedAt ?? b.createdAt ?? 0;

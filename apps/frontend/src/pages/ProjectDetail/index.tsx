@@ -7,6 +7,7 @@ import { getProjectDetail } from '../../services/project';
 import { getProjectScreens, type ScreenListItem } from '../../services/screen';
 import { appendImageResizeParam, resolveAssetUrl } from '../../lib/asset';
 import ScreenCard, { type ScreenCardAction } from '../../components/ScreenCard';
+import type { ScreenPreviewItem } from '../../components/ImagePreviewModal';
 import {
   favoriteProject,
   favoriteScreen,
@@ -143,7 +144,7 @@ const ProjectDetailPage: FC = () => {
   const projectFavoriteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { setState: setProjectListState } = useProjectListContext();
   const previewData = useMemo(() => {
-    const images: string[] = [];
+    const screensForPreview: ScreenPreviewItem[] = [];
     const indexMap = new Map<string, number>();
 
     screenState.items.forEach((item) => {
@@ -151,12 +152,15 @@ const ProjectDetailPage: FC = () => {
       if (!url) {
         return;
       }
-      indexMap.set(item.screenId, images.length);
-      images.push(url);
+      indexMap.set(item.screenId, screensForPreview.length);
+      screensForPreview.push({
+        ...item,
+        previewUrl: url,
+      });
     });
 
     return {
-      images,
+      screens: screensForPreview,
       indexMap,
     };
   }, [screenState.items]);
@@ -521,7 +525,7 @@ const ProjectDetailPage: FC = () => {
                 const previewConfig =
                   typeof previewEntryIndex === 'number'
                     ? {
-                        images: previewData.images,
+                        screens: previewData.screens,
                         initialIndex: previewEntryIndex,
                       }
                     : undefined;

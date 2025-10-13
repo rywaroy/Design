@@ -18,6 +18,9 @@ export class Screen {
   @Prop({ default: false })
   isRecommended: boolean;
 
+  @Prop({ default: 0 })
+  order: number;
+
   @Prop()
   pageType?: string;
 

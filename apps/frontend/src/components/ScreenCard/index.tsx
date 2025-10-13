@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
 import { HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
 import { appendImageResizeParam } from '../../lib/asset';
-import ImagePreviewModal from '../ImagePreviewModal';
+import ImagePreviewModal, { type ScreenPreviewItem } from '../ImagePreviewModal';
 
 const combineClassName = (base: string, extra?: string) => {
   return extra ? `${base} ${extra}` : base;
@@ -28,7 +28,7 @@ export interface ScreenCardProps {
   onClick?: () => void;
   variant?: ScreenCardVariant;
   preview?: {
-    images: string[];
+    screens: ScreenPreviewItem[];
     initialIndex?: number;
   };
   isFavorite?: boolean;
@@ -66,7 +66,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
   const [coverFailed, setCoverFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [favoriteAnimating, setFavoriteAnimating] = useState(false);
-  const previewEnabled = Boolean(preview?.images?.length);
+  const previewEnabled = Boolean(preview?.screens?.length);
   const clickable = typeof onClick === 'function' || previewEnabled;
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(preview?.initialIndex ?? 0);
@@ -133,7 +133,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
     if (!previewEnabled) {
       return 0;
     }
-    const total = preview!.images.length;
+    const total = preview!.screens.length;
     if (total === 0) {
       return 0;
     }
@@ -147,8 +147,11 @@ const ScreenCard: FC<ScreenCardProps> = ({
       }
       return index;
     }
-    if (adjustedCoverUrl) {
-      const foundIndex = preview!.images.findIndex((url) => url === adjustedCoverUrl);
+    if (coverUrl) {
+      const foundIndex = preview!.screens.findIndex((screen) => {
+        const candidates = [screen.previewUrl, screen.url, screen.originalUrl];
+        return candidates.some((candidate) => candidate === coverUrl);
+      });
       if (foundIndex >= 0) {
         return foundIndex;
       }
@@ -239,7 +242,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
         {isFavorite ? <HeartFilled /> : <HeartOutlined />}
       </button>
       {isRecommended ? (
-        <span className="absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs font-semibold text-yellow-900 shadow-md">
+        <span className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs font-semibold text-yellow-900 shadow-md opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           AI 推荐
         </span>
       ) : null}
@@ -318,7 +321,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
         </div>
       ) : null}
       {previewEnabled ? (
-        <ImagePreviewModal open={previewOpen} images={preview!.images} initialIndex={previewIndex} onClose={handlePreviewClose} />
+        <ImagePreviewModal open={previewOpen} screens={preview!.screens} initialIndex={previewIndex} onClose={handlePreviewClose} />
       ) : null}
     </div>
   );
