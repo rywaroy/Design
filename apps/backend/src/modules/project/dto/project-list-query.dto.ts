@@ -1,6 +1,28 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+
+const toStringArray = ({ value }: { value: unknown }) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : null))
+      .filter((item): item is string => Boolean(item));
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  return undefined;
+};
 
 export class ProjectListQueryDto {
   @ApiPropertyOptional({ description: '当前页码', default: 1 })
@@ -31,4 +53,22 @@ export class ProjectListQueryDto {
   @IsOptional()
   @IsString()
   appName?: string;
+
+  @ApiPropertyOptional({
+    description: '按应用类型筛选，多个值逗号分隔或重复传参，满足任意一个即可',
+    type: [String],
+  })
+  @Transform(toStringArray)
+  @IsOptional()
+  @IsString({ each: true })
+  applicationType?: string[];
+
+  @ApiPropertyOptional({
+    description: '按行业领域筛选，多个值逗号分隔或重复传参，满足任意一个即可',
+    type: [String],
+  })
+  @Transform(toStringArray)
+  @IsOptional()
+  @IsString({ each: true })
+  industrySector?: string[];
 }

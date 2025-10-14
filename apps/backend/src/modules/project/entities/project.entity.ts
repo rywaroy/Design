@@ -33,6 +33,12 @@ export class Project {
   @Prop({ type: [String], default: [] })
   keywords?: string[];
 
+  @Prop({ type: [String], default: [] })
+  applicationType?: string[];
+
+  @Prop({ type: [String], default: [] })
+  industrySector?: string[];
+
   // 非持久化字段：标记当前用户是否收藏
   isFavorite?: boolean;
 }
