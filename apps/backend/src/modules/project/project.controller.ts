@@ -17,11 +17,19 @@ import { ProjectFilterResponseDto } from './dto/project-filter-response.dto';
 import { ProjectService } from './project.service';
 import { Project } from './entities/project.entity';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import {
+  ProjectAiSearchRequestDto,
+  ProjectAiSearchResponseDto,
+} from './dto/project-ai-search.dto';
+import { ProjectAiService } from './project-ai.service';
 
 @ApiTags('项目')
 @Controller('project')
 export class ProjectController {
-  constructor(private readonly projectService: ProjectService) {}
+  constructor(
+    private readonly projectService: ProjectService,
+    private readonly projectAiService: ProjectAiService,
+  ) {}
 
   @Get('filters')
   @ApiOperation({ summary: '获取项目筛选项' })
@@ -52,5 +60,17 @@ export class ProjectController {
   findDetail(@Request() req, @Query() query: ProjectDetailQueryDto) {
     const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
     return this.projectService.findDetail(userId, query.projectId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('search/ai')
+  @ApiOperation({ summary: 'AI 解析需求并推荐项目' })
+  @ApiOkResponse({
+    description: 'AI 标签解析与项目搜索结果',
+    type: ProjectAiSearchResponseDto,
+  })
+  aiSearch(@Request() req, @Body() body: ProjectAiSearchRequestDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.projectAiService.searchWithRequirement(userId, body);
   }
 }
