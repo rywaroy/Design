@@ -1,4 +1,12 @@
-import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../../common/decorator/pagination.decorator';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
@@ -26,12 +34,12 @@ export class ProjectController {
   }
 
   @UseGuards(AuthGuard)
-  @Get()
+  @Post('list')
   @ApiOperation({ summary: '项目列表' })
   @ApiPaginatedResponse(Project, '获取项目列表成功')
-  findAll(@Request() req, @Query() query: ProjectListQueryDto) {
+  findAll(@Request() req, @Body() body: ProjectListQueryDto) {
     const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
-    return this.projectService.findAll(userId, query);
+    return this.projectService.findAll(userId, body);
   }
 
   @UseGuards(AuthGuard)

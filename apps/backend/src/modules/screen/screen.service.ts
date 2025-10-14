@@ -16,7 +16,8 @@ import {
 } from '../favorite/entities/favorite.entity';
 import {
   appCategoryData,
-  collectSecondLevelNames,
+  buildSecondLevelLookup,
+  collectFirstLevelNames,
   componentIndexData,
   layoutTypeData,
   pageTypeData,
@@ -25,14 +26,40 @@ import {
   tagsStyleData,
 } from './utils/tag-taxonomy.util';
 
-const PAGE_TYPE_L2 = collectSecondLevelNames(pageTypeData);
-const APP_CATEGORY_L2 = collectSecondLevelNames(appCategoryData);
-const COMPONENT_INDEX_L2 = collectSecondLevelNames(componentIndexData);
-const TAGS_PRIMARY_L2 = collectSecondLevelNames(tagsPrimaryData);
-const TAGS_STYLE_L2 = collectSecondLevelNames(tagsStyleData);
-const TAGS_COMPONENTS_L2 = collectSecondLevelNames(tagsComponentsData);
-const TYPE_L2 = collectSecondLevelNames(layoutTypeData);
-const PLATFORMS = ['ios', 'web'];
+interface FilterDatasetConfig {
+  key: string;
+  label: string;
+  firstLevel: string[];
+  secondLevelLookup: Record<string, string[]>;
+}
+
+const createFilterDataset = (
+  key: string,
+  label: string,
+  nodes: Parameters<typeof collectFirstLevelNames>[0],
+): FilterDatasetConfig => ({
+  key,
+  label,
+  firstLevel: collectFirstLevelNames(nodes),
+  secondLevelLookup: buildSecondLevelLookup(nodes),
+});
+
+const FILTER_DATASET_LIST: FilterDatasetConfig[] = [
+  createFilterDataset('page_type', '页面类型', pageTypeData),
+  createFilterDataset('app_category', '应用分类', appCategoryData),
+  createFilterDataset('component_index', '组件索引', componentIndexData),
+  createFilterDataset('tags_primary', '功能标签', tagsPrimaryData),
+  createFilterDataset('tags_style', '风格标签', tagsStyleData),
+  createFilterDataset('tags_components', '组件标签', tagsComponentsData),
+  createFilterDataset('layout_type', '页面布局', layoutTypeData),
+];
+
+const FILTER_DATASET_MAP = FILTER_DATASET_LIST.reduce<
+  Record<string, FilterDatasetConfig>
+>((acc, item) => {
+  acc[item.key] = item;
+  return acc;
+}, {});
 
 @Injectable()
 export class ScreenService {
@@ -119,20 +146,49 @@ export class ScreenService {
   async getFilterOptions(
     query: ScreenFilterQueryDto,
   ): Promise<ScreenFilterResponseDto> {
-    // 直接返回预置的二级标签数据，后续若需要再切换为数据库筛选
-    void query?.projectId; // 暂时不根据项目过滤
+    void query?.projectId; // 暂不根据项目过滤
 
-    const response = new ScreenFilterResponseDto();
-    response.pageTypeL2 = PAGE_TYPE_L2;
-    response.appCategoryL2 = APP_CATEGORY_L2;
-    response.typeL2 = TYPE_L2;
-    response.componentIndexL2 = COMPONENT_INDEX_L2;
-    response.tagsPrimaryL2 = TAGS_PRIMARY_L2;
-    response.tagsStyleL2 = TAGS_STYLE_L2;
-    response.tagsComponentsL2 = TAGS_COMPONENTS_L2;
-    response.platform = PLATFORMS;
+    const categoryKey = query.category?.toLowerCase();
+    const parentName = query.parent;
 
-    return response;
+    if (categoryKey) {
+      const dataset = FILTER_DATASET_MAP[categoryKey];
+      if (!dataset) {
+        throw new BadRequestException(`未知的筛选类别: ${categoryKey}`);
+      }
+      if (parentName) {
+        const trimmedParent = parentName.trim();
+        const children = dataset.secondLevelLookup[trimmedParent] ?? [];
+        return {
+          categories: [
+            {
+              key: dataset.key,
+              label: dataset.label,
+              parent: trimmedParent,
+              options: children,
+            },
+          ],
+        };
+      }
+
+      return {
+        categories: [
+          {
+            key: dataset.key,
+            label: dataset.label,
+            options: dataset.firstLevel,
+          },
+        ],
+      };
+    }
+
+    return {
+      categories: FILTER_DATASET_LIST.map((dataset) => ({
+        key: dataset.key,
+        label: dataset.label,
+        options: dataset.firstLevel,
+      })),
+    };
   }
 
   async preciseSearch(
@@ -161,21 +217,38 @@ export class ScreenService {
       filter.projectId = projectId;
     }
 
-    const applyString = (field: keyof Screen, value?: string) => {
-      if (!value) {
+    const applyStringOrArray = (
+      field: keyof Screen,
+      value?: string | string[],
+    ) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) {
         return;
       }
-      const trimmed = value.trim();
-      if (!trimmed) {
+
+      const values = Array.isArray(value) ? value : [value];
+      const cleaned = values
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0);
+      if (cleaned.length === 0) {
         return;
       }
-      filter[field] = new RegExp(
-        `^${ScreenService.escapeRegExp(trimmed)}$`,
-        'i',
-      ) as any;
+
+      if (cleaned.length === 1) {
+        filter[field] = new RegExp(
+          `^${ScreenService.escapeRegExp(cleaned[0])}$`,
+          'i',
+        ) as any;
+        return;
+      }
+
+      filter[field] = {
+        $in: cleaned.map(
+          (item) => new RegExp(`^${ScreenService.escapeRegExp(item)}$`, 'i'),
+        ),
+      } as any;
     };
 
-    const applyArrayAll = (field: keyof Screen, values?: string[]) => {
+    const applyArrayAny = (field: keyof Screen, values?: string[]) => {
       if (!values || values.length === 0) {
         return;
       }
@@ -186,23 +259,23 @@ export class ScreenService {
         return;
       }
       filter[field] = {
-        $all: cleaned.map(
+        $in: cleaned.map(
           (item) => new RegExp(`^${ScreenService.escapeRegExp(item)}$`, 'i'),
         ),
       } as any;
     };
 
-    applyString('platform', platform);
-    applyString('pageTypeL2', pageTypeL2);
-    applyString('appCategoryL2', appCategoryL2);
-    applyString('designSystem', designSystem);
-    applyString('typeL2', typeL2);
+    applyStringOrArray('platform', platform);
+    applyStringOrArray('pageTypeL2', pageTypeL2);
+    applyStringOrArray('appCategoryL2', appCategoryL2);
+    applyStringOrArray('designSystem', designSystem);
+    applyStringOrArray('typeL2', typeL2);
 
-    applyArrayAll('componentIndexL2', componentIndexL2);
-    applyArrayAll('tagsPrimaryL2', tagsPrimaryL2);
-    applyArrayAll('tagsStyleL2', tagsStyleL2);
-    applyArrayAll('tagsComponentsL2', tagsComponentsL2);
-    applyArrayAll('designStyle', designStyle);
+    applyArrayAny('componentIndexL2', componentIndexL2);
+    applyArrayAny('tagsPrimaryL2', tagsPrimaryL2);
+    applyArrayAny('tagsStyleL2', tagsStyleL2);
+    applyArrayAny('tagsComponentsL2', tagsComponentsL2);
+    applyArrayAny('designStyle', designStyle);
 
     const skip = (page - 1) * pageSize;
 

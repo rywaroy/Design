@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
-import { BackTop, Empty, Segmented, Spin } from 'antd';
+import { BackTop, Badge, Button, Empty, Segmented, Spin } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
 import { FilterOutlined } from '@ant-design/icons';
 import ScreenCard from '../../components/ScreenCard';
-import ScreenFilterModal from '../../components/ScreenFilterModal';
-import type { ScreenListItem, ScreenFilterResponse, ScreenSearchParams } from '../../services/screen';
+import FilterModal, { type FilterFieldConfig, type FilterSelectionState } from '../../components/FilterModal';
+import type { ScreenListItem, ScreenSearchParams } from '../../services/screen';
 import { getScreenFilters, searchScreens } from '../../services/screen';
 import type { ProjectPlatform } from '../../services/project';
 import { favoriteScreen, unfavoriteScreen } from '../../services/favorite';
@@ -13,6 +13,8 @@ import type { ScreenPreviewItem } from '../../components/ImagePreviewModal';
 import {
   SCREEN_FILTER_FIELDS,
   createInitialFilterSelection,
+  findFieldConfig,
+  type ScreenFilterDatasetKey,
   type ScreenFilterSelectionState,
 } from '../../constants/screenFilters';
 
@@ -38,6 +40,21 @@ const createInitialScreenState = (): ScreenListState => ({
   hasMore: true,
   loading: false,
 });
+
+const createInitialPrimaryOptions = () =>
+  SCREEN_FILTER_FIELDS.reduce<Record<ScreenFilterDatasetKey, string[]>>((acc, field) => {
+    acc[field.datasetKey] = [];
+    return acc;
+  }, {} as Record<ScreenFilterDatasetKey, string[]>);
+
+const createInitialChildrenOptions = () =>
+  SCREEN_FILTER_FIELDS.reduce<Record<ScreenFilterDatasetKey, Record<string, string[]>>>(
+    (acc, field) => {
+      acc[field.datasetKey] = {};
+      return acc;
+    },
+    {} as Record<ScreenFilterDatasetKey, Record<string, string[]>>,
+  );
 
 const mergeScreens = (
   prevItems: ScreenListItem[],
@@ -90,7 +107,12 @@ const ScreenListPage: FC = () => {
   const [screenState, setScreenState] = useState<ScreenListState>(createInitialScreenState);
   const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
   const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [filterOptions, setFilterOptions] = useState<ScreenFilterResponse | null>(null);
+  const [primaryFilterOptions, setPrimaryFilterOptions] = useState<
+    Record<ScreenFilterDatasetKey, string[]>
+  >(createInitialPrimaryOptions);
+  const [childrenFilterOptions, setChildrenFilterOptions] = useState<
+    Record<ScreenFilterDatasetKey, Record<string, string[]>>
+  >(createInitialChildrenOptions);
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<ScreenFilterSelectionState>(
     createInitialFilterSelection(),
@@ -99,19 +121,28 @@ const ScreenListPage: FC = () => {
   const loadingRef = useRef(false);
   const requestIdRef = useRef(0);
   const backTopTarget = useCallback(() => window, []);
+  const filterFields = useMemo<FilterFieldConfig[]>(
+    () =>
+      SCREEN_FILTER_FIELDS.map((field) => ({
+        key: field.datasetKey,
+        label: field.label,
+        multiple: field.multiple,
+      })),
+    [],
+  );
 
   const convertFiltersToParams = useCallback(
     (selection: ScreenFilterSelectionState): Partial<ScreenSearchParams> => {
       const params: Partial<ScreenSearchParams> = {};
       SCREEN_FILTER_FIELDS.forEach((field) => {
-        const values = selection[field.key] ?? [];
+        const values = selection[field.datasetKey] ?? [];
         if (!values || values.length === 0) {
           return;
         }
         if (field.multiple) {
-          (params as Record<string, unknown>)[field.key] = values;
+          (params as Record<string, unknown>)[field.requestKey] = values;
         } else {
-          (params as Record<string, unknown>)[field.key] = values[0];
+          (params as Record<string, unknown>)[field.requestKey] = values[0];
         }
       });
       return params;
@@ -230,7 +261,16 @@ const ScreenListPage: FC = () => {
         if (!active) {
           return;
         }
-        setFilterOptions(response.data);
+        const nextPrimary = createInitialPrimaryOptions();
+        response.data.categories.forEach((category) => {
+          const datasetKey = category.key as ScreenFilterDatasetKey;
+          if (!findFieldConfig(datasetKey)) {
+            return;
+          }
+          nextPrimary[datasetKey] = category.options ?? [];
+        });
+        setPrimaryFilterOptions(nextPrimary);
+        setChildrenFilterOptions(createInitialChildrenOptions());
       })
       .catch((error) => {
         console.error('获取筛选项失败', error);
@@ -289,9 +329,37 @@ const ScreenListPage: FC = () => {
     [],
   );
 
+  const handleFetchChildrenOptions = useCallback(
+    async (dataset: ScreenFilterDatasetKey, parent: string) => {
+      try {
+        const response = await getScreenFilters({ category: dataset, parent });
+        const options = response.data.categories[0]?.options ?? [];
+        setChildrenFilterOptions((prev) => ({
+          ...prev,
+          [dataset]: {
+            ...(prev[dataset] ?? {}),
+            [parent]: options,
+          },
+        }));
+        return options;
+      } catch (error) {
+        console.error('获取子筛选项失败', error);
+        setChildrenFilterOptions((prev) => ({
+          ...prev,
+          [dataset]: {
+            ...(prev[dataset] ?? {}),
+            [parent]: [],
+          },
+        }));
+        return [];
+      }
+    },
+    [],
+  );
+
   const activeFilterCount = useMemo(() => {
     return SCREEN_FILTER_FIELDS.reduce((count, field) => {
-      const values = appliedFilters[field.key] ?? [];
+      const values = appliedFilters[field.datasetKey] ?? [];
       if (!values || values.length === 0) {
         return count;
       }
@@ -299,8 +367,14 @@ const ScreenListPage: FC = () => {
     }, 0);
   }, [appliedFilters]);
 
-  const handleFilterApply = (selection: ScreenFilterSelectionState) => {
-    setAppliedFilters(selection);
+  const handleFilterApply = (selection: FilterSelectionState) => {
+    const nextSelection = selection as ScreenFilterSelectionState;
+    setAppliedFilters(nextSelection);
+    setScreenState(createInitialScreenState());
+    setFavoritePending({});
+    loadingRef.current = false;
+    requestIdRef.current += 1;
+    void fetchScreens({ page: 1, replace: true, filtersSelection: nextSelection });
   };
 
   const handleModalClose = () => {
@@ -353,14 +427,14 @@ const ScreenListPage: FC = () => {
             onChange={handlePlatformChange}
             className="rounded-full border border-gray-200 bg-white shadow-sm"
           />
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800"
-            onClick={() => setFilterModalOpen(true)}
-          >
-            <FilterOutlined />
-            <span>筛选{activeFilterCount > 0 ? `（${activeFilterCount}）` : ''}</span>
-          </button>
+          <Badge count={activeFilterCount} showZero={false} offset={[-4, 4]}>
+            <Button
+              type="default"
+              shape="circle"
+              icon={<FilterOutlined />}
+              onClick={() => setFilterModalOpen(true)}
+            />
+          </Badge>
         </div>
       </header>
 
@@ -427,14 +501,15 @@ const ScreenListPage: FC = () => {
       </section>
 
       <BackTop visibilityHeight={240} target={backTopTarget} />
-      <ScreenFilterModal
+      <FilterModal
         open={filterModalOpen}
         loading={filtersLoading}
-        filters={filterOptions}
+        fields={filterFields}
+        primaryOptions={primaryFilterOptions}
+        childrenOptions={childrenFilterOptions}
         value={appliedFilters}
-        onApply={(selection) => {
-          handleFilterApply(selection);
-        }}
+        onFetchChildren={handleFetchChildrenOptions}
+        onApply={handleFilterApply}
         onClose={handleModalClose}
       />
     </div>

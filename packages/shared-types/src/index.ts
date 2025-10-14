@@ -11,6 +11,8 @@ export interface Project {
   recommendedCount: number;
   appTagline?: string;
   keywords?: string[];
+  applicationType?: string[];
+  industrySector?: string[];
   isFavorite?: boolean;
 }
 

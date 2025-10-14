@@ -1,42 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class ScreenFilterCategoryDto {
+  @ApiProperty({ description: '筛选类别 key，例如 app_category、page_type 等' })
+  key: string;
+
+  @ApiProperty({ description: '筛选类别名称' })
+  label: string;
+
+  @ApiProperty({ type: [String], description: '可选项列表（第一层或子分类）' })
+  options: string[];
+
+  @ApiProperty({
+    description: '父级名称（仅在查询子分类时返回）',
+    required: false,
+  })
+  parent?: string;
+}
+
 export class ScreenFilterResponseDto {
-  @ApiProperty({ type: [String], description: '页面二级类型' })
-  pageTypeL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '应用二级分类' })
-  appCategoryL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '设计体系' })
-  designSystem: string[] = [];
-
-  @ApiProperty({ type: [String], description: '二级类型' })
-  typeL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '间距' })
-  spacing: string[] = [];
-
-  @ApiProperty({ type: [String], description: '密度' })
-  density: string[] = [];
-
-  @ApiProperty({ type: [String], description: '组件二级索引' })
-  componentIndexL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '一级标签二级内容' })
-  tagsPrimaryL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '样式标签二级内容' })
-  tagsStyleL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '组件标签二级内容' })
-  tagsComponentsL2: string[] = [];
-
-  @ApiProperty({ type: [String], description: '设计风格' })
-  designStyle: string[] = [];
-
-  @ApiProperty({ type: [String], description: '情感标签' })
-  feeling: string[] = [];
-
-  @ApiProperty({ type: [String], description: '平台' })
-  platform: string[] = [];
+  @ApiProperty({
+    type: [ScreenFilterCategoryDto],
+    description: '筛选类别集合，默认返回所有类别的第一层可选项',
+  })
+  categories: ScreenFilterCategoryDto[];
 }

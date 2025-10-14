@@ -30,6 +30,28 @@ interface ProjectFilterDatasetConfig {
   secondLevelLookup: Record<string, string[]>;
 }
 
+const normalizeTagList = (input: unknown): string[] => {
+  if (Array.isArray(input)) {
+    return Array.from(
+      new Set(
+        input
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item) => item.length > 0),
+      ),
+    );
+  }
+
+  if (typeof input === 'string') {
+    const segments = input
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    return Array.from(new Set(segments));
+  }
+
+  return [];
+};
+
 const createFilterDataset = (
   key: string,
   label: string,
@@ -81,14 +103,12 @@ export class ProjectService {
       filter.platform = platform;
     }
 
-    const applicationTypeFilter =
-      applicationType?.filter((item) => item.trim().length > 0) ?? [];
+    const applicationTypeFilter = normalizeTagList(applicationType);
     if (applicationTypeFilter.length > 0) {
       filter.applicationType = { $in: applicationTypeFilter };
     }
 
-    const industrySectorFilter =
-      industrySector?.filter((item) => item.trim().length > 0) ?? [];
+    const industrySectorFilter = normalizeTagList(industrySector);
     if (industrySectorFilter.length > 0) {
       filter.industrySector = { $in: industrySectorFilter };
     }

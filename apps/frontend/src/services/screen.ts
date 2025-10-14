@@ -43,14 +43,14 @@ export const getProjectScreens = (params: ScreenListParams) =>
 export interface ScreenSearchParams {
   page?: number;
   pageSize?: number;
-  platform?: ProjectPlatform;
+  platform?: ProjectPlatform | ProjectPlatform[];
   projectId?: string;
-  pageTypeL2?: string;
-  appCategoryL2?: string;
-  designSystem?: string;
-  typeL2?: string;
-  spacing?: string;
-  density?: string;
+  pageTypeL2?: string | string[];
+  appCategoryL2?: string | string[];
+  designSystem?: string | string[];
+  typeL2?: string | string[];
+  spacing?: string | string[];
+  density?: string | string[];
   componentIndexL2?: string[];
   tagsPrimaryL2?: string[];
   tagsStyleL2?: string[];
@@ -66,24 +66,20 @@ export const searchScreens = (params: ScreenSearchParams) =>
     data: params,
   });
 
-export interface ScreenFilterResponse {
-  pageTypeL2: string[];
-  appCategoryL2: string[];
-  designSystem: string[];
-  typeL2: string[];
-  spacing: string[];
-  density: string[];
-  componentIndexL2: string[];
-  tagsPrimaryL2: string[];
-  tagsStyleL2: string[];
-  tagsComponentsL2: string[];
-  designStyle: string[];
-  feeling: string[];
-  platform: string[];
+export interface ScreenFilterCategory {
+  key: string;
+  label: string;
+  options: string[];
+  parent?: string;
 }
 
-export const getScreenFilters = () =>
+export interface ScreenFilterResponse {
+  categories: ScreenFilterCategory[];
+}
+
+export const getScreenFilters = (params?: { category?: string; parent?: string }) =>
   request<ScreenFilterResponse>({
     url: '/screen/filters',
     method: 'GET',
+    params,
   });

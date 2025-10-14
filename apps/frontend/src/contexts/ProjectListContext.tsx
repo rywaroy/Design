@@ -1,6 +1,10 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { ProjectListItem, ProjectPlatform } from '../services/project';
+import {
+  createInitialProjectFilterSelection,
+  type ProjectFilterSelectionState,
+} from '../constants/projectFilters';
 
 export interface ProjectListState {
   platform: ProjectPlatform;
@@ -11,6 +15,7 @@ export interface ProjectListState {
   loading: boolean;
   error: string | null;
   scrollTop: number;
+  filters: ProjectFilterSelectionState;
 }
 
 interface ProjectListContextValue {
@@ -29,6 +34,7 @@ const createInitialProjectListState = (): ProjectListState => ({
   loading: false,
   error: null,
   scrollTop: 0,
+  filters: createInitialProjectFilterSelection(),
 });
 
 const ProjectListContext = createContext<ProjectListContextValue | undefined>(undefined);

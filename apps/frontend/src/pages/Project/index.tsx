@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Segmented, Spin, Empty, BackTop } from 'antd';
+import { Segmented, Spin, Empty, BackTop, Badge, Button } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
+import { FilterOutlined } from '@ant-design/icons';
 import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
-import { getProjects } from '../../services/project';
+import { getProjects, getProjectFilters } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
 import { useNavigate } from 'react-router-dom';
 import { useProjectListContext } from '../../contexts/ProjectListContext';
@@ -10,6 +11,13 @@ import {
   favoriteProject,
   unfavoriteProject,
 } from '../../services/favorite';
+import FilterModal, { type FilterFieldConfig, type FilterSelectionState } from '../../components/FilterModal';
+import {
+  PROJECT_FILTER_FIELDS,
+  findProjectFilterFieldConfig,
+  type ProjectFilterDatasetKey,
+  type ProjectFilterSelectionState,
+} from '../../constants/projectFilters';
 
 const PAGE_SIZE = 30;
 
@@ -20,11 +28,33 @@ const platformOptions: { label: string; value: ProjectPlatform }[] = [
 
 const secondaryFilters = ['最新', '最受欢迎', '高评分'];
 
-const useInfinityProjects = () => {
+const createInitialPrimaryOptions = () =>
+  PROJECT_FILTER_FIELDS.reduce<Record<ProjectFilterDatasetKey, string[]>>((acc, field) => {
+    acc[field.datasetKey] = [];
+    return acc;
+  }, {} as Record<ProjectFilterDatasetKey, string[]>);
+
+const createInitialChildrenOptions = () =>
+  PROJECT_FILTER_FIELDS.reduce<Record<ProjectFilterDatasetKey, Record<string, string[]>>>(
+    (acc, field) => {
+      acc[field.datasetKey] = {};
+      return acc;
+    },
+    {} as Record<ProjectFilterDatasetKey, Record<string, string[]>>,
+  );
+
+const useInfinityProjects = (
+  convertFiltersToParams: (selection: ProjectFilterSelectionState) => Partial<ProjectListParams>,
+) => {
   const { state, setState } = useProjectListContext();
-  const { platform, projects, currentPage, hasMore, total, loading, scrollTop } = state;
+  const { platform, projects, currentPage, hasMore, total, loading, scrollTop, filters } = state;
   const loadingRef = useRef(false);
   const requestIdRef = useRef(0);
+  const filtersRef = useRef<ProjectFilterSelectionState>(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
   const mergeProjects = useCallback(
     (prevList: ProjectListItem[], nextItems: ProjectListItem[], replace?: boolean) => {
       if (replace) {
@@ -55,7 +85,11 @@ const useInfinityProjects = () => {
 
   const fetchProjects = useCallback(
     async (
-      params: Pick<ProjectListParams, 'page'> & { replace?: boolean; platform?: ProjectPlatform },
+      params: Pick<ProjectListParams, 'page'> & {
+        replace?: boolean;
+        platform?: ProjectPlatform;
+        filtersSelection?: ProjectFilterSelectionState;
+      },
     ) => {
       if (loadingRef.current && !params.replace) {
         return;
@@ -66,6 +100,9 @@ const useInfinityProjects = () => {
       requestIdRef.current = requestId;
       loadingRef.current = true;
 
+      const selection = params.filtersSelection ?? filtersRef.current;
+      const filterParams = convertFiltersToParams(selection);
+
       setState((prev) => ({
         ...prev,
         loading: true,
@@ -75,6 +112,7 @@ const useInfinityProjects = () => {
         page: params.page,
         pageSize: PAGE_SIZE,
         platform: targetPlatform,
+        ...filterParams,
       });
       const { items, total: totalItems } = response.data;
       const nextPage = typeof params.page === 'number' ? params.page ?? 1 : Number(params.page ?? 1);
@@ -97,7 +135,7 @@ const useInfinityProjects = () => {
       });
       loadingRef.current = false;
     },
-    [mergeProjects, platform, setState],
+    [convertFiltersToParams, mergeProjects, platform, setState],
   );
 
   useEffect(() => {
@@ -141,6 +179,23 @@ const useInfinityProjects = () => {
     [setState],
   );
 
+  const setFilters = useCallback(
+    (nextFilters: ProjectFilterSelectionState) => {
+      setState((prev) => ({
+        ...prev,
+        filters: nextFilters,
+      }));
+    },
+    [setState],
+  );
+
+  const refresh = useCallback(
+    (selection?: ProjectFilterSelectionState) => {
+      void fetchProjects({ page: 1, replace: true, filtersSelection: selection });
+    },
+    [fetchProjects],
+  );
+
   const setScrollTop = useCallback(
     (value: number) => {
       setState((prev) => {
@@ -175,11 +230,14 @@ const useInfinityProjects = () => {
     loading,
     hasMore,
     total,
+    filters,
     loadMore,
     setPlatform,
     scrollTop,
     setScrollTop,
     updateProjectFavorite,
+    setFilters,
+    refresh,
   };
 };
 
@@ -188,19 +246,49 @@ const ProjectPage: React.FC = () => {
   const restoredScrollRef = useRef(false);
   const navigate = useNavigate();
   const backTopTarget = useCallback(() => window, []);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [primaryFilterOptions, setPrimaryFilterOptions] = useState(createInitialPrimaryOptions);
+  const [childrenFilterOptions, setChildrenFilterOptions] = useState(createInitialChildrenOptions);
+  const [filtersLoading, setFiltersLoading] = useState(false);
+  const filterFields = useMemo<FilterFieldConfig[]>(
+    () =>
+      PROJECT_FILTER_FIELDS.map((field) => ({
+        key: field.datasetKey,
+        label: field.label,
+        multiple: field.multiple,
+      })),
+    [],
+  );
+  const convertFiltersToParams = useCallback(
+    (selection: ProjectFilterSelectionState): Partial<ProjectListParams> => {
+      const params: Partial<ProjectListParams> = {};
+      PROJECT_FILTER_FIELDS.forEach((field) => {
+        const values = selection[field.datasetKey] ?? [];
+        if (!values || values.length === 0) {
+          return;
+        }
+        (params as Record<string, unknown>)[field.requestKey] = values;
+      });
+      return params;
+    },
+    [],
+  );
   const {
     platform,
     projects,
     loading,
     hasMore,
     total,
+    filters,
     loadMore,
     setPlatform,
     scrollTop,
     setScrollTop,
     updateProjectFavorite,
+    setFilters,
+    refresh,
   } =
-    useInfinityProjects();
+    useInfinityProjects(convertFiltersToParams);
   const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
   const gridClassName = useMemo(() => {
     if (platform === 'ios') {
@@ -209,6 +297,87 @@ const ProjectPage: React.FC = () => {
 
     return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2';
   }, [platform]);
+
+  const activeFilterCount = useMemo(() => {
+    return PROJECT_FILTER_FIELDS.reduce((count, field) => {
+      const values = filters[field.datasetKey] ?? [];
+      if (!values || values.length === 0) {
+        return count;
+      }
+      return count + values.length;
+    }, 0);
+  }, [filters]);
+
+  useEffect(() => {
+    let active = true;
+    setFiltersLoading(true);
+    getProjectFilters()
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        const nextPrimary = createInitialPrimaryOptions();
+        response.data.categories.forEach((category) => {
+          const datasetKey = category.key as ProjectFilterDatasetKey;
+          if (!findProjectFilterFieldConfig(datasetKey)) {
+            return;
+          }
+          nextPrimary[datasetKey] = category.options ?? [];
+        });
+        setPrimaryFilterOptions(nextPrimary);
+        setChildrenFilterOptions(createInitialChildrenOptions());
+      })
+      .catch((error) => {
+        console.error('获取项目筛选项失败', error);
+      })
+      .finally(() => {
+        if (active) {
+          setFiltersLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleFetchChildrenOptions = useCallback(
+    async (dataset: string, parent: string) => {
+      const datasetKey = dataset as ProjectFilterDatasetKey;
+      if (!findProjectFilterFieldConfig(datasetKey)) {
+        return [] as string[];
+      }
+      try {
+        const response = await getProjectFilters({ category: datasetKey, parent });
+        const options = response.data.categories[0]?.options ?? [];
+        setChildrenFilterOptions((prev) => ({
+          ...prev,
+          [datasetKey]: {
+            ...(prev[datasetKey] ?? {}),
+            [parent]: options,
+          },
+        }));
+        return options;
+      } catch (error) {
+        console.error('获取项目子筛选项失败', error);
+        setChildrenFilterOptions((prev) => ({
+          ...prev,
+          [datasetKey]: {
+            ...(prev[datasetKey] ?? {}),
+            [parent]: [],
+          },
+        }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  const handleFilterApply = (selection: FilterSelectionState) => {
+    const nextSelection = selection as ProjectFilterSelectionState;
+    setFilters(nextSelection);
+    refresh(nextSelection);
+  };
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -287,7 +456,7 @@ const ProjectPage: React.FC = () => {
 
   useEffect(() => {
     setFavoritePending({});
-  }, [platform]);
+  }, [platform, filters]);
 
   const handleProjectFavoriteToggle = useCallback(
     async (projectId: string, nextFavorite: boolean) => {
@@ -321,13 +490,23 @@ const ProjectPage: React.FC = () => {
           </p>
         </div>
 
-        <Segmented
-          size="large"
-          options={platformOptions}
-          value={platform}
-          onChange={handlePlatformChange}
-          className="self-start rounded-full border border-gray-200 bg-white shadow-sm"
-        />
+        <div className="flex items-center gap-3 self-start md:self-auto">
+          <Segmented
+            size="large"
+            options={platformOptions}
+            value={platform}
+            onChange={handlePlatformChange}
+            className="rounded-full border border-gray-200 bg-white shadow-sm"
+          />
+          <Badge count={activeFilterCount} showZero={false} offset={[-4, 4]}>
+            <Button
+              type="default"
+              shape="circle"
+              icon={<FilterOutlined />}
+              onClick={() => setFilterModalOpen(true)}
+            />
+          </Badge>
+        </div>
       </header>
 
       <nav className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
@@ -373,6 +552,17 @@ const ProjectPage: React.FC = () => {
       <div ref={sentinelRef} className="h-1" />
 
       <BackTop visibilityHeight={240} target={backTopTarget} />
+      <FilterModal
+        open={filterModalOpen}
+        loading={filtersLoading}
+        fields={filterFields}
+        primaryOptions={primaryFilterOptions}
+        childrenOptions={childrenFilterOptions}
+        value={filters}
+        onFetchChildren={handleFetchChildrenOptions}
+        onApply={handleFilterApply}
+        onClose={() => setFilterModalOpen(false)}
+      />
     </div>
   );
 };

@@ -8,6 +8,8 @@ export interface ProjectListParams {
   pageSize?: number;
   platform?: ProjectPlatform;
   appName?: string;
+  applicationType?: string | string[];
+  industrySector?: string | string[];
 }
 
 export interface ProjectListItem extends Project {}
@@ -21,7 +23,25 @@ export interface PaginationResult<T> {
 
 export const getProjects = (params: ProjectListParams) =>
   request<PaginationResult<ProjectListItem>>({
-    url: '/project',
+    url: '/project/list',
+    method: 'POST',
+    data: params,
+  });
+
+export interface ProjectFilterCategory {
+  key: string;
+  label: string;
+  options: string[];
+  parent?: string;
+}
+
+export interface ProjectFilterResponse {
+  categories: ProjectFilterCategory[];
+}
+
+export const getProjectFilters = (params?: { category?: string; parent?: string }) =>
+  request<ProjectFilterResponse>({
+    url: '/project/filters',
     method: 'GET',
     params,
   });

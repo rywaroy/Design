@@ -9,7 +9,10 @@ const transformToArray = (value: unknown): string[] | undefined => {
       .filter((item): item is string => !!item);
   }
   if (typeof value === 'string' && value.trim() !== '') {
-    return [value.trim()];
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
   }
   return undefined;
 };
@@ -39,47 +42,51 @@ export class ScreenPreciseSearchQueryDto {
   @IsString()
   projectId?: string;
 
-  @ApiPropertyOptional({ description: '平台', enum: ['ios', 'web'] })
-  @Transform(trimValue)
+  @ApiPropertyOptional({
+    description: '平台',
+    enum: ['ios', 'web'],
+    type: [String],
+  })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  platform?: string;
+  @IsString({ each: true })
+  platform?: string[];
 
-  @ApiPropertyOptional({ description: '页面二级类型' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '页面二级类型', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  pageTypeL2?: string;
+  @IsString({ each: true })
+  pageTypeL2?: string[];
 
-  @ApiPropertyOptional({ description: '应用二级分类' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '应用二级分类', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  appCategoryL2?: string;
+  @IsString({ each: true })
+  appCategoryL2?: string[];
 
-  @ApiPropertyOptional({ description: '设计体系' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '设计体系', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  designSystem?: string;
+  @IsString({ each: true })
+  designSystem?: string[];
 
-  @ApiPropertyOptional({ description: '二级类型' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '二级类型', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  typeL2?: string;
+  @IsString({ each: true })
+  typeL2?: string[];
 
-  @ApiPropertyOptional({ description: '间距' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '间距', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  spacing?: string;
+  @IsString({ each: true })
+  spacing?: string[];
 
-  @ApiPropertyOptional({ description: '密度' })
-  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '密度', type: [String] })
+  @Transform(({ value }) => transformToArray(value))
   @IsOptional()
-  @IsString()
-  density?: string;
+  @IsString({ each: true })
+  density?: string[];
 
   @ApiPropertyOptional({
     description: '组件二级索引，精确匹配所有值',
