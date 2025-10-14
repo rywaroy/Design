@@ -1,6 +1,5 @@
 import type { FC, MouseEvent as ReactMouseEvent, SyntheticEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Modal } from 'antd';
 import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ScreenListItem } from '../../services/screen';
@@ -113,15 +112,7 @@ const resolveDownloadUrl = (screen: ScreenPreviewItem | undefined) => {
 };
 
 const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialIndex = 0, onClose }) => {
-  const [container, setContainer] = useState<HTMLElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(() => clampIndex(initialIndex, screens.length));
-
-  useEffect(() => {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    setContainer(document.body);
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -131,27 +122,25 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
   }, [open, initialIndex, screens.length]);
 
   useEffect(() => {
-    if (!open || !container) {
+    if (!open || typeof document === 'undefined' || typeof window === 'undefined') {
       return;
     }
 
-    const originalOverflow = container.style.overflow;
-    const originalPaddingRight = container.style.paddingRight;
-    const scrollbarWidth =
-      typeof window !== 'undefined' && typeof document !== 'undefined'
-        ? window.innerWidth - document.documentElement.clientWidth
-        : 0;
+    const body = document.body;
+    const originalOverflow = body.style.overflow;
+    const originalPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
 
-    container.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
     if (scrollbarWidth > 0) {
-      container.style.paddingRight = `${scrollbarWidth}px`;
+      body.style.paddingRight = `${scrollbarWidth}px`;
     }
 
     return () => {
-      container.style.overflow = originalOverflow;
-      container.style.paddingRight = originalPaddingRight;
+      body.style.overflow = originalOverflow;
+      body.style.paddingRight = originalPaddingRight;
     };
-  }, [container, open]);
+  }, [open]);
 
   const hasScreens = screens.length > 0;
 
@@ -208,13 +197,13 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
     };
   }, [handleNext, handlePrev, open]);
 
-  if (!container || !hasScreens) {
+  if (!hasScreens) {
     return null;
   }
 
   const isRecommended = Boolean(currentScreen?.isRecommended ?? currentScreen?.isAiRecommended);
 
-  return createPortal(
+  return (
     <Modal
       open={open}
       onCancel={handleClose}
@@ -222,7 +211,6 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
       closable={false}
       centered
       maskClosable={false}
-      destroyOnHidden
       width="95vw"
       styles={{
         wrapper: {
@@ -255,13 +243,13 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
 
         <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white">
           <div className="flex h-[95%] w-[95%] items-center justify-center rounded-[28px] bg-white/90 p-2 transition-shadow">
-              <img
-                src={imageSrc}
-                alt="预览图片"
-                className={`max-h-[90%] max-w-[90%] rounded-[24px] object-contain ${
-                  isRecommended ? 'ring-4 ring-yellow-300/80' : ''
-                }`}
-              />
+            <img
+              src={imageSrc}
+              alt="预览图片"
+              className={`max-h-[90%] max-w-[90%] rounded-[24px] object-contain ${
+                isRecommended ? 'ring-4 ring-yellow-300/80' : ''
+              }`}
+            />
           </div>
 
           {screens.length > 1 ? (
@@ -304,8 +292,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
           </div>
         ) : null}
       </div>
-    </Modal>,
-    container,
+    </Modal>
   );
 };
 
