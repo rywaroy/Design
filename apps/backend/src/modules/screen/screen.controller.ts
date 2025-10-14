@@ -51,27 +51,33 @@ export class ScreenController {
     return this.screenService.getFilterOptions(query);
   }
 
+  @UseGuards(AuthGuard)
   @Post('search/precise')
   @ApiOperation({ summary: '精准搜索页面（全部命中条件）' })
   @ApiPaginatedResponse(Screen, '精准搜索成功')
-  preciseSearch(@Body() query: ScreenPreciseSearchQueryDto) {
-    return this.screenService.preciseSearch(query);
+  preciseSearch(@Request() req, @Body() query: ScreenPreciseSearchQueryDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.screenService.preciseSearch(userId, query);
   }
 
+  @UseGuards(AuthGuard)
   @Post('search/fuzzy')
   @ApiOperation({ summary: '模糊搜索页面（命中 50% 以上解析字段）' })
   @ApiPaginatedResponse(ScreenSearchResultDto, '模糊搜索成功')
-  fuzzySearch(@Body() query: ScreenFuzzySearchQueryDto) {
-    return this.screenService.fuzzySearch(query);
+  fuzzySearch(@Request() req, @Body() query: ScreenFuzzySearchQueryDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.screenService.fuzzySearch(userId, query);
   }
 
+  @UseGuards(AuthGuard)
   @Post('search/ai')
   @ApiOperation({ summary: 'AI 解析需求并执行模糊搜索' })
   @ApiOkResponse({
     description: 'AI 标签解析与模糊搜索结果',
     type: ScreenAiSearchResponseDto,
   })
-  aiFuzzySearch(@Body() body: ScreenAiSearchRequestDto) {
-    return this.screenAiService.searchWithRequirement(body);
+  aiFuzzySearch(@Request() req, @Body() body: ScreenAiSearchRequestDto) {
+    const userId = (req.user?.id ?? req.user?._id?.toString()) as string;
+    return this.screenAiService.searchWithRequirement(userId, body);
   }
 }

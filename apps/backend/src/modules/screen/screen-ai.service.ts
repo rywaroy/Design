@@ -206,6 +206,7 @@ export class ScreenAiService {
   ) {}
 
   async searchWithRequirement(
+    userId: string,
     dto: ScreenAiSearchRequestDto,
   ): Promise<ScreenAiSearchResponseDto> {
     const requirement = dto.requirement;
@@ -233,7 +234,7 @@ export class ScreenAiService {
         pageSize: dto.pageSize,
       };
     } else {
-      searchResult = await this.screenService.fuzzySearch(fuzzQuery);
+      searchResult = await this.screenService.fuzzySearch(userId, fuzzQuery);
     }
 
     const response = new ScreenAiSearchResponseDto();

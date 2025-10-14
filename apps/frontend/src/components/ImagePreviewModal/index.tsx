@@ -1,7 +1,7 @@
 import type { FC, MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ScreenListItem } from '../../services/screen';
 import { resolveAssetUrl } from '../../lib/asset';
 
@@ -49,6 +49,68 @@ const resolveScreenPreviewUrl = (screen: ScreenPreviewItem | undefined) => {
   return '';
 };
 
+const openInNewTab = (url: string) => {
+  if (!url || typeof window === 'undefined') {
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+const extractFilename = (url: string) => {
+  try {
+    const base = typeof window !== 'undefined' ? window.location.href : undefined;
+    const parsed = new URL(url, base);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length === 0) {
+      return 'download';
+    }
+    return segments[segments.length - 1];
+  } catch (_error) {
+    return 'download';
+  }
+};
+
+const downloadFile = async (url: string) => {
+  if (!url || typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+  try {
+    const response = await fetch(url, { credentials: 'include' });
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = extractFilename(url);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.warn('下载原图失败，改为新窗口打开:', error);
+    openInNewTab(url);
+  }
+};
+
+const resolveDownloadUrl = (screen: ScreenPreviewItem | undefined) => {
+  if (!screen) {
+    return undefined;
+  }
+  const candidates = [screen.originalUrl, screen.url, screen.previewUrl];
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    const resolved = resolveAssetUrl(candidate) ?? candidate;
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return undefined;
+};
+
 const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialIndex = 0, onClose }) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(() => clampIndex(initialIndex, screens.length));
@@ -90,6 +152,8 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
   }, [currentIndex, hasScreens, screens]);
 
   const imageSrc = useMemo(() => resolveScreenPreviewUrl(currentScreen), [currentScreen]);
+
+  const downloadUrl = useMemo(() => resolveDownloadUrl(currentScreen), [currentScreen]);
 
   const handleClose = useCallback((event?: ReactMouseEvent<HTMLButtonElement>) => {
     event?.stopPropagation();
@@ -187,6 +251,20 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
             </>
           ) : null}
         </div>
+        {downloadUrl ? (
+          <div className="pointer-events-none absolute bottom-6 right-6 z-20">
+            <button
+              type="button"
+              aria-label="下载原图"
+              className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-lg text-gray-700 shadow-lg transition hover:bg-white"
+              onClick={() => {
+                void downloadFile(downloadUrl);
+              }}
+            >
+              <DownloadOutlined />
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>,
     container,

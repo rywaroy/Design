@@ -43,6 +43,32 @@ export class ScreenService {
     private readonly favoriteModel: Model<FavoriteDocument>,
   ) {}
 
+  private async attachFavoriteFlag<T extends { screenId: string }>(
+    userId: string,
+    items: T[],
+  ): Promise<T[]> {
+    if (items.length === 0) {
+      return items;
+    }
+
+    const favorites = await this.favoriteModel
+      .find({
+        userId,
+        targetType: FavoriteTargetType.SCREEN,
+        targetId: { $in: items.map((item) => item.screenId) },
+      })
+      .select('targetId')
+      .lean()
+      .exec();
+
+    const favoriteIds = new Set(favorites.map((favorite) => favorite.targetId));
+
+    return items.map((item) => ({
+      ...item,
+      isFavorite: favoriteIds.has(item.screenId),
+    }));
+  }
+
   async findByProject(
     userId: string,
     query: ScreenListQueryDto,
@@ -110,6 +136,7 @@ export class ScreenService {
   }
 
   async preciseSearch(
+    userId: string,
     query: ScreenPreciseSearchQueryDto,
   ): Promise<PaginationDto<Screen>> {
     const {
@@ -190,8 +217,10 @@ export class ScreenService {
       this.screenModel.countDocuments(filter).exec(),
     ]);
 
+    const itemsWithFavorite = await this.attachFavoriteFlag(userId, items);
+
     return {
-      items,
+      items: itemsWithFavorite,
       total,
       page,
       pageSize,
@@ -199,6 +228,7 @@ export class ScreenService {
   }
 
   async fuzzySearch(
+    userId: string,
     query: ScreenFuzzySearchQueryDto,
   ): Promise<PaginationDto<ScreenSearchResultDto>> {
     const {
@@ -360,8 +390,10 @@ export class ScreenService {
     const skip = (page - 1) * pageSize;
     const pagedItems = scored.slice(skip, skip + pageSize);
 
+    const itemsWithFavorite = await this.attachFavoriteFlag(userId, pagedItems);
+
     return {
-      items: pagedItems,
+      items: itemsWithFavorite,
       total: scored.length,
       page,
       pageSize,

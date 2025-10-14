@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App as AntApp, Empty, Segmented, Spin, Tabs } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
 import { useNavigate } from 'react-router-dom';
-import { DownloadOutlined } from '@ant-design/icons';
 import type { ProjectListItem } from '../../services/project';
 import type { ScreenListItem } from '../../services/screen';
 import ProjectCard from '../../components/ProjectCard';
-import ScreenCard, { type ScreenCardAction } from '../../components/ScreenCard';
+import ScreenCard from '../../components/ScreenCard';
 import type { ScreenPreviewItem } from '../../components/ImagePreviewModal';
 import {
   favoriteProject,
@@ -105,72 +104,6 @@ const resolveScreenCoverUrl = (screen: ScreenListItem): string | undefined => {
   }
 
   return undefined;
-};
-
-const openInNewTab = (url: string) => {
-  if (!url || typeof window === 'undefined') {
-    return;
-  }
-  window.open(url, '_blank', 'noopener,noreferrer');
-};
-
-const extractFilename = (url: string) => {
-  try {
-    const base = typeof window !== 'undefined' ? window.location.href : undefined;
-    const parsed = new URL(url, base);
-    const segments = parsed.pathname.split('/').filter(Boolean);
-    if (segments.length === 0) {
-      return 'download';
-    }
-    return segments[segments.length - 1];
-  } catch (_error) {
-    return 'download';
-  }
-};
-
-const downloadFile = async (url: string) => {
-  if (!url || typeof window === 'undefined' || typeof document === 'undefined') {
-    return;
-  }
-  try {
-    const response = await fetch(url, { credentials: 'include' });
-    if (!response.ok) {
-      throw new Error(`下载失败: ${response.status}`);
-    }
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = extractFilename(url);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(objectUrl);
-  } catch (error) {
-    console.warn('下载原图失败，改为新窗口打开:', error);
-    openInNewTab(url);
-  }
-};
-
-const buildScreenActions = (screen: ScreenListItem): ScreenCardAction[] => {
-  const actions: ScreenCardAction[] = [];
-  const previewUrl = resolveScreenCoverUrl(screen);
-
-  if (screen.originalUrl) {
-    const originalUrl = resolveAssetUrl(screen.originalUrl) ?? screen.originalUrl;
-    if (originalUrl && originalUrl !== previewUrl) {
-      actions.push({
-        key: `${screen.screenId}-source`,
-        label: '下载原图',
-        icon: <DownloadOutlined />,
-        onClick: () => {
-          void downloadFile(originalUrl);
-        },
-      });
-    }
-  }
-
-  return actions;
 };
 
 const createEmptyListState = <T,>(): FavoriteListState<T> => ({
@@ -639,7 +572,6 @@ const FavoritePage: React.FC = () => {
             const isWeb = item.platform === 'web';
             const variant: 'ios' | 'web' = isWeb ? 'web' : 'ios';
             const cardClassName = isWeb ? 'lg:col-span-3' : 'lg:col-span-2';
-            const actions = buildScreenActions(item);
             const previewEntryIndex = screenPreviewData.indexMap.get(item.screenId);
             const previewScreens = screenPreviewData.screens;
             const previewConfig =
@@ -655,7 +587,6 @@ const FavoritePage: React.FC = () => {
               <ScreenCard
                 key={item.screenId}
                 coverUrl={coverUrl}
-                actions={actions}
                 fallbackText="暂无预览"
                 variant={variant}
                 className={cardClassName}
