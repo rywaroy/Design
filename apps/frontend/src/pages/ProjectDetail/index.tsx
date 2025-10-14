@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BackTop, Button, Empty, Spin, Tag } from 'antd';
+import { FloatButton, Button, Empty, Spin, Tag } from 'antd';
 import { HeartFilled, HeartOutlined, LeftOutlined } from '@ant-design/icons';
 import type { Project } from '@design/shared-types';
 import { getProjectDetail } from '../../services/project';
@@ -17,6 +17,8 @@ import {
 import { useProjectListContext } from '../../contexts/ProjectListContext';
 
 const SCREEN_PAGE_SIZE = 30;
+
+const BackTop = FloatButton.BackTop;
 
 const platformLabelMap: Record<string, string> = {
   ios: 'iOS',

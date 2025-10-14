@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Segmented, Spin, Empty, BackTop, Badge, Button } from 'antd';
+import { Segmented, Spin, Empty, FloatButton, Badge, Button } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
 import { FilterOutlined } from '@ant-design/icons';
 import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
@@ -20,6 +20,8 @@ import {
 } from '../../constants/projectFilters';
 
 const PAGE_SIZE = 30;
+
+const BackTop = FloatButton.BackTop;
 
 const platformOptions: { label: string; value: ProjectPlatform }[] = [
   { label: 'iOS', value: 'ios' },

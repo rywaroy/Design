@@ -1,6 +1,6 @@
-import type { FC, MouseEvent } from 'react';
+import type { FC, SyntheticEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Input, Spin, Tag } from 'antd';
+import { Button, Input, Modal, Spin, Tag } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 
 export interface FilterFieldConfig {
@@ -137,13 +137,33 @@ const FilterModal: FC<FilterModalProps> = ({
     }));
   }, [fields]);
 
+  useEffect(() => {
+    if (!open || typeof document === 'undefined' || typeof window === 'undefined') {
+      return;
+    }
+    const body = document.body;
+    const originalOverflow = body.style.overflow;
+    const originalPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      body.style.overflow = originalOverflow;
+      body.style.paddingRight = originalPaddingRight;
+    };
+  }, [open]);
+
   if (!fields.length) {
     return null;
   }
 
   const activeField = fields.find((field) => field.key === activeFieldKey) ?? fields[0];
 
-  const handleClose = (event?: MouseEvent<HTMLButtonElement>) => {
+  const handleClose = (event?: SyntheticEvent) => {
     event?.stopPropagation();
     onClose();
   };
@@ -227,13 +247,35 @@ const FilterModal: FC<FilterModalProps> = ({
     );
   }, [draft, fields]);
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="relative flex h-[82vh] w-[92vw] max-w-6xl overflow-hidden rounded-[32px] bg-[#1F2430] text-white shadow-2xl ring-1 ring-black/40">
+    <Modal
+      open={open}
+      onCancel={handleClose}
+      footer={null}
+      closable={false}
+      centered
+      maskClosable={false}
+      width="92vw"
+      styles={{
+        wrapper: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        content: {
+          background: 'transparent',
+          padding: 0,
+          boxShadow: 'none',
+          maxWidth: 1152,
+          width: '100%',
+        },
+        body: {
+          padding: 0,
+        },
+      }}
+      rootClassName="filter-modal-root"
+    >
+      <div className="relative flex h-[82vh] w-full max-w-6xl overflow-hidden rounded-[32px] bg-[#1F2430] text-white shadow-2xl ring-1 ring-black/40">
         <button
           type="button"
           aria-label="关闭筛选"
@@ -409,7 +451,7 @@ const FilterModal: FC<FilterModalProps> = ({
           </div>
         </section>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,6 +1,7 @@
-import type { FC, MouseEvent as ReactMouseEvent } from 'react';
+import type { FC, MouseEvent as ReactMouseEvent, SyntheticEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Modal } from 'antd';
 import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ScreenListItem } from '../../services/screen';
 import { resolveAssetUrl } from '../../lib/asset';
@@ -135,10 +136,20 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
     }
 
     const originalOverflow = container.style.overflow;
+    const originalPaddingRight = container.style.paddingRight;
+    const scrollbarWidth =
+      typeof window !== 'undefined' && typeof document !== 'undefined'
+        ? window.innerWidth - document.documentElement.clientWidth
+        : 0;
+
     container.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      container.style.paddingRight = `${scrollbarWidth}px`;
+    }
 
     return () => {
       container.style.overflow = originalOverflow;
+      container.style.paddingRight = originalPaddingRight;
     };
   }, [container, open]);
 
@@ -155,7 +166,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
 
   const downloadUrl = useMemo(() => resolveDownloadUrl(currentScreen), [currentScreen]);
 
-  const handleClose = useCallback((event?: ReactMouseEvent<HTMLButtonElement>) => {
+  const handleClose = useCallback((event?: ReactMouseEvent<HTMLButtonElement> | SyntheticEvent) => {
     event?.stopPropagation();
     onClose();
   }, [onClose]);
@@ -197,15 +208,42 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
     };
   }, [handleNext, handlePrev, open]);
 
-  if (!open || !container || !hasScreens) {
+  if (!container || !hasScreens) {
     return null;
   }
 
   const isRecommended = Boolean(currentScreen?.isRecommended ?? currentScreen?.isAiRecommended);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true">
-      <div className="relative flex h-[95vh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl">
+    <Modal
+      open={open}
+      onCancel={handleClose}
+      footer={null}
+      closable={false}
+      centered
+      maskClosable={false}
+      destroyOnHidden
+      width="95vw"
+      styles={{
+        wrapper: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        content: {
+          background: 'transparent',
+          padding: 0,
+          boxShadow: 'none',
+          maxWidth: '95vw',
+          width: '100%',
+        },
+        body: {
+          padding: 0,
+        },
+      }}
+      rootClassName="image-preview-modal-root"
+    >
+      <div className="relative flex h-[95vh] w-full max-w-[95vw] flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl">
         <button
           type="button"
           aria-label="关闭预览"
@@ -266,7 +304,7 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
           </div>
         ) : null}
       </div>
-    </div>,
+    </Modal>,
     container,
   );
 };
