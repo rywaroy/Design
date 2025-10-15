@@ -4,6 +4,8 @@ import { AiService } from './ai.service';
 
 describe('AiService', () => {
   let axiosCreateSpy: jest.SpyInstance;
+  let saveImageSpy: jest.SpyInstance;
+  let downloadImageSpy: jest.SpyInstance;
 
   const setupService = (
     overrides?: Partial<Record<string, string | number | undefined>>,
@@ -18,6 +20,7 @@ describe('AiService', () => {
       'ai.timeoutMs': 5000,
       'ai.apiKey': 'mock-api-key',
       'ai.model': 'models/mock',
+      'ai.imageModel': 'models/mock-image',
     };
 
     const configMap = { ...defaults, ...overrides };
@@ -38,10 +41,28 @@ describe('AiService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     axiosCreateSpy.mockReset();
+    saveImageSpy = jest
+      .spyOn(AiService.prototype as any, 'saveBase64Image')
+      .mockResolvedValue({
+        path: 'uploads/20250101/mock.png',
+        url: 'http://localhost:3000/uploads/20250101/mock.png',
+        filename: 'mock.png',
+      });
+    downloadImageSpy = jest
+      .spyOn(AiService.prototype as any, 'downloadImageAsBase64')
+      .mockResolvedValue({
+        base64: 'downloaded-base64',
+        mimeType: 'image/jpeg',
+      });
   });
 
   afterAll(() => {
     axiosCreateSpy.mockRestore();
+  });
+
+  afterEach(() => {
+    saveImageSpy.mockRestore();
+    downloadImageSpy.mockRestore();
   });
 
   it('should throw when API key is missing', async () => {
@@ -156,5 +177,155 @@ describe('AiService', () => {
     await expect(
       service.generateTextResponse({ userPrompt: 'foo' }),
     ).rejects.toThrow('AI 服务调用失败');
+  });
+
+  it('should call image model when inline image is provided', async () => {
+    const { service, mockPost } = setupService();
+    mockPost.mockResolvedValue({
+      data: {
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: 'image/png',
+                    data: 'base64image',
+                  },
+                },
+                {
+                  text: 'Image generated successfully.',
+                },
+              ],
+            },
+            finishReason: 'STOP',
+          },
+        ],
+      },
+    });
+
+    const response = await service.generateImageContent({
+      parts: [
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: 'inputbase64',
+          },
+        },
+        { text: '请根据图片生成新风格' },
+      ],
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/v1beta/models/models/mock-image:generateContent',
+      {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'inputbase64',
+                },
+              },
+              { text: '请根据图片生成新风格' },
+            ],
+          },
+        ],
+      },
+      { params: { key: 'mock-api-key' } },
+    );
+    expect(saveImageSpy).toHaveBeenCalledWith('base64image', 'image/png');
+    const candidate = response.candidates?.[0];
+    expect(candidate?.content?.parts).toEqual([
+      {
+        inlineData: {
+          url: 'http://localhost:3000/uploads/20250101/mock.png',
+        },
+      },
+      {
+        text: 'Image generated successfully.',
+      },
+    ]);
+    expect(candidate?.finishReason).toBe('STOP');
+  });
+
+  it('should use image model even when no image provided', async () => {
+    const { service, mockPost } = setupService();
+    mockPost.mockResolvedValue({
+      data: {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'plain answer' }],
+            },
+          },
+        ],
+      },
+    });
+
+    const response = await service.generateImageContent({
+      parts: [{ text: '简单回答' }],
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/v1beta/models/models/mock-image:generateContent',
+      {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: '简单回答' }],
+          },
+        ],
+      },
+      { params: { key: 'mock-api-key' } },
+    );
+    const candidate = response.candidates?.[0];
+    expect(candidate?.content?.parts).toEqual([{ text: 'plain answer' }]);
+    expect(candidate?.finishReason).toBeUndefined();
+  });
+
+  it('should download image when only url provided', async () => {
+    const { service, mockPost } = setupService();
+    mockPost.mockResolvedValue({
+      data: {
+        candidates: [],
+      },
+    });
+
+    await service.generateImageContent({
+      parts: [
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            url: 'https://example.com/image.png',
+          },
+        },
+      ],
+    });
+
+    expect(downloadImageSpy).toHaveBeenCalledWith(
+      'https://example.com/image.png',
+    );
+    expect(mockPost).toHaveBeenCalledWith(
+      '/v1beta/models/models/mock-image:generateContent',
+      {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: 'downloaded-base64',
+                },
+              },
+            ],
+          },
+        ],
+      },
+      { params: { key: 'mock-api-key' } },
+    );
   });
 });

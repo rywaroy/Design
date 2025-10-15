@@ -34,5 +34,6 @@ export const validationSchema = Joi.object({
     .default('https://generativelanguage.googleapis.com'),
   AI_API_KEY: Joi.string().required(),
   AI_MODEL: Joi.string().default('models/gemini-1.5-flash'),
+  AI_IMAGE_MODEL: Joi.string().default('models/gemini-2.5-flash-image'),
   AI_API_TIMEOUT_MS: Joi.number().default(20000),
 });

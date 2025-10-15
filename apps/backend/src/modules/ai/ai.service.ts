@@ -5,11 +5,22 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError, AxiosInstance } from 'axios';
+import * as fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 type GeminiRole = 'user' | 'model' | 'system';
 
-interface GeminiPart {
-  text: string;
+export interface GeminiInlineData {
+  mimeType?: string;
+  data?: string;
+  url?: string;
+}
+
+export interface GeminiPart {
+  text?: string;
+  inlineData?: GeminiInlineData;
 }
 
 interface GeminiContent {
@@ -17,18 +28,54 @@ interface GeminiContent {
   parts: GeminiPart[];
 }
 
-interface GeminiCandidate {
+export interface GeminiSafetyRating {
+  category?: string;
+  probability?: string;
+  blocked?: boolean;
+  probabilityScore?: number;
+}
+
+export interface GeminiCandidate {
   content?: GeminiContent;
   finishReason?: string;
+  index?: number;
+  safetyRatings?: GeminiSafetyRating[] | null;
+}
+
+interface GeminiPromptFeedback {
+  blockReason?: string;
+  safetyRatings?: GeminiSafetyRating[] | null;
+}
+
+interface GeminiTokenDetails {
+  modality?: string;
+  tokenCount?: number;
+}
+
+interface GeminiUsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+  promptTokensDetails?: GeminiTokenDetails[];
+  candidatesTokensDetails?: GeminiTokenDetails[];
+}
+
+interface GeminiGenerationConfig {
+  responseModalities?: string[];
 }
 
 interface GeminiGenerateContentRequest {
   contents: GeminiContent[];
   systemInstruction?: GeminiContent;
+  generationConfig?: GeminiGenerationConfig;
 }
 
-interface GeminiGenerateContentResponse {
+export interface GeminiGenerateContentResponse {
   candidates?: GeminiCandidate[];
+  promptFeedback?: GeminiPromptFeedback;
+  usageMetadata?: GeminiUsageMetadata;
+  modelVersion?: string;
+  responseId?: string;
 }
 
 export interface AiPromptParams {
@@ -36,11 +83,17 @@ export interface AiPromptParams {
   systemInstruction?: string;
 }
 
+export interface AiContentParams {
+  parts: GeminiPart[];
+  model?: string;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly httpClient: AxiosInstance;
   private readonly model: string;
+  private readonly imageModel: string;
   private readonly apiKey: string;
 
   constructor(private readonly configService: ConfigService) {
@@ -52,6 +105,9 @@ export class AiService {
     this.apiKey = this.configService.get<string>('ai.apiKey') || '';
     this.model =
       this.configService.get<string>('ai.model') || 'gemini-1.5-flash';
+    this.imageModel =
+      this.configService.get<string>('ai.imageModel') ||
+      'models/gemini-2.5-flash-image';
 
     this.httpClient = axios.create({
       baseURL: baseUrl,
@@ -116,9 +172,7 @@ export class AiService {
           },
         );
       const candidate = response.data.candidates?.[0];
-      const contentText =
-        candidate?.content?.parts?.map((part) => part.text).join('\n') || '';
-      const trimmed = contentText.trim();
+      const trimmed = AiService.extractTextFromParts(candidate?.content?.parts);
 
       if (!trimmed) {
         this.logger.error(
@@ -132,7 +186,75 @@ export class AiService {
       const axiosError = error as AxiosError;
       const message = axiosError.response?.data || axiosError.message || error;
       this.logger.error(`调用 AI 服务失败: ${JSON.stringify(message)}`);
-      throw new InternalServerErrorException('AI 服务调用失败');
+      throw new InternalServerErrorException(
+        `AI 服务调用失败 - ${JSON.stringify(message)}`,
+      );
+    }
+  }
+
+  async generateImageContent(
+    params: AiContentParams,
+  ): Promise<GeminiGenerateContentResponse> {
+    if (!this.apiKey) {
+      this.logger.error('AI_API_KEY 未配置');
+      throw new InternalServerErrorException('AI 服务未正确配置');
+    }
+
+    const preparedParts: GeminiPart[] = [];
+    for (const part of params.parts) {
+      const prepared: GeminiPart = {};
+      if (part.text) {
+        prepared.text = part.text;
+      }
+
+      const inlineSource = part.inlineData;
+      if (inlineSource) {
+        const { base64, mimeType } =
+          await this.ensureInlineDataBase64(inlineSource);
+
+        prepared.inlineData = {
+          mimeType,
+          data: base64,
+        };
+      }
+
+      preparedParts.push(prepared);
+    }
+
+    const requestBody: GeminiGenerateContentRequest = {
+      contents: [
+        {
+          role: 'user',
+          parts: preparedParts,
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['Image'],
+      },
+    };
+
+    const targetModel = params.model || this.imageModel;
+
+    try {
+      const response =
+        await this.httpClient.post<GeminiGenerateContentResponse>(
+          `/v1beta/models/${targetModel}:generateContent`,
+          requestBody,
+          {
+            params: { key: this.apiKey },
+          },
+        );
+
+      await this.enrichResponseWithImageUrls(response.data);
+
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      const message = axiosError.response?.data || axiosError.message || error;
+      this.logger.error(`调用 AI 服务失败: ${JSON.stringify(message)}`);
+      throw new InternalServerErrorException(
+        `AI 服务调用失败 - ${JSON.stringify(message)}`,
+      );
     }
   }
 
@@ -160,5 +282,145 @@ export class AiService {
     }
 
     throw new Error('未找到 JSON 或 markdown 代码块');
+  }
+
+  private static extractTextFromParts(parts?: GeminiPart[]): string {
+    if (!parts?.length) return '';
+
+    const text = parts
+      .map((part) => part.text?.trim() || '')
+      .filter((segment) => segment.length > 0)
+      .join('\n')
+      .trim();
+
+    return text;
+  }
+
+  private async ensureInlineDataBase64(
+    inlineData: GeminiInlineData,
+  ): Promise<{ base64: string; mimeType: string }> {
+    const fallbackMime = 'image/png';
+    if (inlineData.data && inlineData.data.trim()) {
+      return {
+        base64: AiService.stripBase64Prefix(inlineData.data),
+        mimeType: inlineData.mimeType?.trim() || fallbackMime,
+      };
+    }
+
+    if (inlineData.url) {
+      const downloaded = await this.downloadImageAsBase64(inlineData.url);
+      const mimeType =
+        downloaded.mimeType?.trim() ||
+        inlineData.mimeType?.trim() ||
+        fallbackMime;
+      return { base64: downloaded.base64, mimeType };
+    }
+
+    throw new InternalServerErrorException('图片数据缺失');
+  }
+
+  private async downloadImageAsBase64(
+    url: string,
+  ): Promise<{ base64: string; mimeType?: string }> {
+    try {
+      const response = await axios.get<ArrayBuffer>(url, {
+        responseType: 'arraybuffer',
+      });
+      const base64 = Buffer.from(response.data).toString('base64');
+      const mimeType = response.headers['content-type'];
+      return { base64, mimeType };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`下载图片失败: ${url} - ${message}`);
+      throw new InternalServerErrorException('图片下载失败');
+    }
+  }
+
+  private static stripBase64Prefix(data: string): string {
+    const trimmed = data.trim();
+    const commaIndex = trimmed.indexOf(',');
+    if (commaIndex !== -1) {
+      return trimmed.slice(commaIndex + 1);
+    }
+    return trimmed;
+  }
+
+  private static resolveExtension(mimeType: string): string {
+    const mapping: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg',
+    };
+    if (mapping[mimeType]) return mapping[mimeType];
+    const suffix = mimeType.split('/')[1] || 'png';
+    if (suffix.includes('jpeg')) return 'jpg';
+    return suffix;
+  }
+
+  private async saveBase64Image(
+    base64: string,
+    mimeType?: string,
+  ): Promise<{ path: string; url: string; filename: string }> {
+    const normalized = AiService.stripBase64Prefix(base64);
+    const buffer = Buffer.from(normalized, 'base64');
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateFolder = `${year}${month}${day}`;
+    const uploadDir = path.join('uploads', dateFolder);
+
+    if (!fs.existsSync(uploadDir)) {
+      await fsPromises.mkdir(uploadDir, { recursive: true });
+    }
+
+    const effectiveMime = mimeType?.trim() || 'image/png';
+    const extension = AiService.resolveExtension(effectiveMime);
+    const filename = `${uuidv4()}.${extension}`;
+    const filePath = path.join(uploadDir, filename);
+
+    await fsPromises.writeFile(filePath, buffer);
+
+    const baseUrl = this.configService.get<string>('app.baseUrl');
+    const relativePath = filePath.replace(/\\/g, '/');
+
+    return {
+      path: filePath,
+      url: `${baseUrl}/${relativePath}`,
+      filename,
+    };
+  }
+
+  private async enrichResponseWithImageUrls(
+    response: GeminiGenerateContentResponse,
+  ): Promise<void> {
+    const candidates = response.candidates || [];
+    for (const candidate of candidates) {
+      const parts = candidate.content?.parts;
+      if (!parts?.length) continue;
+
+      for (const part of parts) {
+        const inline = part.inlineData;
+        if (!inline) continue;
+
+        if (!inline.data || inline.url) {
+          if (inline.url) {
+            part.inlineData = { url: inline.url };
+          } else {
+            part.inlineData = inline;
+          }
+          continue;
+        }
+
+        const saved = await this.saveBase64Image(inline.data, inline.mimeType);
+        part.inlineData = {
+          url: saved.url,
+        };
+      }
+    }
   }
 }

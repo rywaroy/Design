@@ -9,7 +9,7 @@ export default () => ({
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'yourSecretKey',
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   mongodb: {
     host: process.env.MONGODB_HOST || '127.0.0.1',
@@ -34,9 +34,8 @@ export default () => ({
       'https://generativelanguage.googleapis.com',
     apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
     model:
-      process.env.AI_MODEL ||
-      process.env.OPENAI_MODEL ||
-      'models/gemini-1.5-flash',
+      process.env.AI_MODEL || process.env.OPENAI_MODEL || 'gemini-1.5-flash',
+    imageModel: process.env.AI_IMAGE_MODEL || 'gemini-2.5-flash-image',
     timeoutMs: parseInt(process.env.AI_API_TIMEOUT_MS) || 20000,
   },
 });
