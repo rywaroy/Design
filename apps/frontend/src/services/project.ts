@@ -28,6 +28,47 @@ export const getProjects = (params: ProjectListParams) =>
     data: params,
   });
 
+export interface ProjectAiDimensionSelection {
+  firstLevel: string[];
+  secondLevel: string[];
+  mapping: Record<string, string[]>;
+}
+
+export interface ProjectAiTags {
+  applicationType: ProjectAiDimensionSelection;
+  industrySector: ProjectAiDimensionSelection;
+}
+
+export interface ProjectAiDimensionIntent {
+  relevant: boolean;
+  reason?: string;
+  confidence?: number;
+}
+
+export interface ProjectAiMeta {
+  intent: Record<string, ProjectAiDimensionIntent>;
+  notice?: string;
+  rawResponses?: string[];
+}
+
+export interface ProjectAiSearchResponse {
+  tags: ProjectAiTags;
+  llmMeta: ProjectAiMeta;
+  search: PaginationResult<ProjectListItem>;
+}
+
+export interface ProjectAiSearchParams {
+  requirement: string;
+  platform?: ProjectPlatform;
+}
+
+export const searchProjectsWithAI = (params: ProjectAiSearchParams) =>
+  request<ProjectAiSearchResponse>({
+    url: '/project/search/ai',
+    method: 'POST',
+    data: params,
+  });
+
 export interface ProjectFilterCategory {
   key: string;
   label: string;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Segmented, Spin, Empty, FloatButton, Badge, Button } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
-import { FilterOutlined } from '@ant-design/icons';
+import { FilterOutlined, OpenAIOutlined } from '@ant-design/icons';
 import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
 import { getProjects, getProjectFilters } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
@@ -18,6 +18,7 @@ import {
   type ProjectFilterDatasetKey,
   type ProjectFilterSelectionState,
 } from '../../constants/projectFilters';
+import AISearch from './components/AISearch';
 
 const PAGE_SIZE = 30;
 
@@ -291,6 +292,7 @@ const ProjectPage: React.FC = () => {
     refresh,
   } =
     useInfinityProjects(convertFiltersToParams);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
   const gridClassName = useMemo(() => {
     if (platform === 'ios') {
@@ -380,6 +382,14 @@ const ProjectPage: React.FC = () => {
     setFilters(nextSelection);
     refresh(nextSelection);
   };
+
+  const handleAiModalOpen = useCallback(() => {
+    setAiModalOpen(true);
+  }, []);
+
+  const handleAiModalClose = useCallback(() => {
+    setAiModalOpen(false);
+  }, []);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -500,6 +510,13 @@ const ProjectPage: React.FC = () => {
             onChange={handlePlatformChange}
             className="rounded-full border border-gray-200 bg-white shadow-sm"
           />
+          <Button
+            type="default"
+            shape="circle"
+            icon={<OpenAIOutlined />}
+            onClick={handleAiModalOpen}
+            title="AI 搜索"
+          />
           <Badge count={activeFilterCount} showZero={false} offset={[-4, 4]}>
             <Button
               type="default"
@@ -554,6 +571,14 @@ const ProjectPage: React.FC = () => {
       <div ref={sentinelRef} className="h-1" />
 
       <BackTop visibilityHeight={240} target={backTopTarget} />
+      <AISearch
+        open={aiModalOpen}
+        platform={platform}
+        onClose={handleAiModalClose}
+        onProjectClick={handleProjectClick}
+        onToggleFavorite={handleProjectFavoriteToggle}
+        favoritePending={favoritePending}
+      />
       <FilterModal
         open={filterModalOpen}
         loading={filtersLoading}
