@@ -37,6 +37,10 @@ const AISearch: React.FC<AISearchProps> = ({
 
   useEffect(() => {
     if (!open) {
+      setRequirement('');
+      setProjects([]);
+      setSearched(false);
+      setLoading(false);
       return;
     }
 

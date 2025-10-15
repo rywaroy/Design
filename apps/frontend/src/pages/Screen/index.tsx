@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { FloatButton, Badge, Button, Empty, Segmented, Spin } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
-import { FilterOutlined } from '@ant-design/icons';
+import { FilterOutlined, OpenAIOutlined } from '@ant-design/icons';
 import ScreenCard from '../../components/ScreenCard';
 import FilterModal, { type FilterFieldConfig, type FilterSelectionState } from '../../components/FilterModal';
 import type { ScreenListItem, ScreenSearchParams } from '../../services/screen';
@@ -17,6 +17,7 @@ import {
   type ScreenFilterDatasetKey,
   type ScreenFilterSelectionState,
 } from '../../constants/screenFilters';
+import AISearch from './components/AISearch';
 
 const PAGE_SIZE = 30;
 
@@ -109,6 +110,7 @@ const ScreenListPage: FC = () => {
   const [screenState, setScreenState] = useState<ScreenListState>(createInitialScreenState);
   const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const [primaryFilterOptions, setPrimaryFilterOptions] = useState<
     Record<ScreenFilterDatasetKey, string[]>
   >(createInitialPrimaryOptions);
@@ -383,6 +385,14 @@ const ScreenListPage: FC = () => {
     setFilterModalOpen(false);
   };
 
+  const handleAiModalOpen = () => {
+    setAiModalOpen(true);
+  };
+
+  const handleAiModalClose = () => {
+    setAiModalOpen(false);
+  };
+
   const gridClassName = useMemo(() => {
     return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6';
   }, []);
@@ -428,6 +438,13 @@ const ScreenListPage: FC = () => {
             value={platform}
             onChange={handlePlatformChange}
             className="rounded-full border border-gray-200 bg-white shadow-sm"
+          />
+          <Button
+            type="default"
+            shape="circle"
+            icon={<OpenAIOutlined />}
+            onClick={handleAiModalOpen}
+            title="AI 搜索"
           />
           <Badge count={activeFilterCount} showZero={false} offset={[-4, 4]}>
             <Button
@@ -503,6 +520,13 @@ const ScreenListPage: FC = () => {
       </section>
 
       <BackTop visibilityHeight={240} target={backTopTarget} />
+      <AISearch
+        open={aiModalOpen}
+        platform={platform}
+        onClose={handleAiModalClose}
+        onToggleFavorite={handleScreenFavoriteToggle}
+        favoritePending={favoritePending}
+      />
       <FilterModal
         open={filterModalOpen}
         loading={filtersLoading}

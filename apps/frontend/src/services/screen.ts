@@ -66,6 +66,53 @@ export const searchScreens = (params: ScreenSearchParams) =>
     data: params,
   });
 
+export interface ScreenAiDimensionSelection {
+  firstLevel: string[];
+  secondLevel: string[];
+  mapping: Record<string, string[]>;
+}
+
+export interface ScreenAiTags {
+  appCategory: ScreenAiDimensionSelection;
+  componentIndex: ScreenAiDimensionSelection;
+  layoutType: ScreenAiDimensionSelection;
+  pageType: ScreenAiDimensionSelection;
+  tagsPrimary: ScreenAiDimensionSelection;
+  tagsStyle: ScreenAiDimensionSelection;
+  tagsComponents: ScreenAiDimensionSelection;
+}
+
+export interface ScreenAiDimensionIntent {
+  relevant: boolean;
+  reason?: string;
+  confidence?: number;
+}
+
+export interface ScreenAiMeta {
+  intent: Record<string, ScreenAiDimensionIntent>;
+  notice?: string;
+  rawResponses?: string[];
+}
+
+export interface ScreenAiSearchResponse {
+  tags: ScreenAiTags;
+  llmMeta: ScreenAiMeta;
+  search: PaginationResult<ScreenListItem>;
+}
+
+export interface ScreenAiSearchParams {
+  requirement: string;
+  platform?: ProjectPlatform;
+  projectId?: string;
+}
+
+export const searchScreensWithAI = (params: ScreenAiSearchParams) =>
+  request<ScreenAiSearchResponse>({
+    url: '/screen/search/ai',
+    method: 'POST',
+    data: params,
+  });
+
 export interface ScreenFilterCategory {
   key: string;
   label: string;
