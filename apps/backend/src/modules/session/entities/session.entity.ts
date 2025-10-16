@@ -8,7 +8,7 @@ export enum SessionStatus {
 
 @Schema({
   timestamps: true,
-  collection: 'ai_sessions',
+  collection: 'sessions',
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
 })
@@ -21,6 +21,9 @@ export class Session {
 
   @Prop({ type: String, enum: SessionStatus, default: SessionStatus.ACTIVE })
   status: SessionStatus;
+
+  @Prop({ type: String, maxlength: 500 })
+  lastMessage?: string;
 
   @Prop({ type: Date })
   lastMessageAt?: Date;

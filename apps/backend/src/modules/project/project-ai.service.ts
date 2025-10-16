@@ -246,8 +246,10 @@ ${dimensionDescriptions}
       response = undefined;
     }
 
-    const intentResult =
-      {} as Record<ProjectDimensionKey, ProjectAiDimensionIntentDto>;
+    const intentResult = {} as Record<
+      ProjectDimensionKey,
+      ProjectAiDimensionIntentDto
+    >;
 
     DIMENSION_CONFIGS.forEach((config) => {
       const raw = response?.dimensions?.[config.snake];
@@ -316,8 +318,10 @@ ${dimensionDescriptions}
     });
 
     const resolved = await Promise.all(tasks);
-    const result =
-      {} as Record<ProjectDimensionKey, ProjectAiDimensionSelectionDto>;
+    const result = {} as Record<
+      ProjectDimensionKey,
+      ProjectAiDimensionSelectionDto
+    >;
     resolved.forEach(({ key, selection }) => {
       result[key] = selection;
     });

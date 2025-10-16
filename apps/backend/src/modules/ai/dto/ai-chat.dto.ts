@@ -8,6 +8,7 @@ import {
   IsUrl,
   Matches,
   MinLength,
+  IsMongoId,
   ValidateIf,
   ValidateNested,
   ValidatorConstraint,
@@ -104,6 +105,13 @@ export class AiChatPartDto {
 }
 
 export class AiChatRequestDto {
+  @ApiProperty({
+    description: '会话 ID',
+  })
+  @Transform(trimValue)
+  @IsMongoId()
+  sessionId!: string;
+
   @ApiProperty({
     description: '用户请求的消息片段列表，顺序即发送顺序',
     type: AiChatPartDto,

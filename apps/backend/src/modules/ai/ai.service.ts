@@ -9,6 +9,17 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  AiChatCandidateContentDto,
+  AiChatPartDto,
+  AiChatRequestDto,
+} from './dto/ai-chat.dto';
+import { MessageService } from '../message/message.service';
+import {
+  MessageDocument,
+  MessageRole,
+} from '../message/entities/message.entity';
+import { MessagePartDto } from '../message/dto/message.dto';
 
 type GeminiRole = 'user' | 'model' | 'system';
 
@@ -95,8 +106,12 @@ export class AiService {
   private readonly model: string;
   private readonly imageModel: string;
   private readonly apiKey: string;
+  private readonly chatHistoryLimit = 50;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly messageService: MessageService,
+  ) {
     const baseUrl =
       this.configService.get<string>('ai.baseUrl') ||
       'https://generativelanguage.googleapis.com';
@@ -182,6 +197,281 @@ export class AiService {
       }
 
       return trimmed;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      const message = axiosError.response?.data || axiosError.message || error;
+      this.logger.error(`调用 AI 服务失败: ${JSON.stringify(message)}`);
+      throw new InternalServerErrorException(
+        `AI 服务调用失败 - ${JSON.stringify(message)}`,
+      );
+    }
+  }
+
+  private async buildConversationContext(
+    sessionId: string,
+  ): Promise<GeminiContent[]> {
+    const history = await this.messageService.list({
+      sessionId,
+      limit: this.chatHistoryLimit,
+    });
+
+    if (!history.length) {
+      return [];
+    }
+
+    const chronological = [...history].reverse();
+    const contents: GeminiContent[] = [];
+
+    for (const message of chronological) {
+      const parts = await this.normalizeStoredMessage(message);
+      if (!parts.length) {
+        continue;
+      }
+
+      contents.push({
+        role: AiService.mapMessageRoleToGemini(message.role),
+        parts,
+      });
+    }
+
+    return contents;
+  }
+
+  private async normalizeStoredMessage(
+    message: MessageDocument,
+  ): Promise<GeminiPart[]> {
+    const parsedParts = AiService.deserializeStoredParts(message.content);
+    if (parsedParts) {
+      return this.normalizeMessageParts(parsedParts);
+    }
+
+    const text = message.content?.trim();
+    if (!text) {
+      return [];
+    }
+
+    return [
+      {
+        text,
+      },
+    ];
+  }
+
+  private async normalizeIncomingParts(
+    parts: AiChatPartDto[],
+  ): Promise<GeminiPart[]> {
+    const preparedParts: GeminiPart[] = [];
+
+    for (const part of parts) {
+      const prepared: GeminiPart = {};
+
+      if (part.text?.trim()) {
+        prepared.text = part.text;
+      }
+
+      if (part.inlineData) {
+        const { base64, mimeType } = await this.ensureInlineDataBase64(
+          part.inlineData,
+        );
+        prepared.inlineData = {
+          mimeType,
+          data: base64,
+        };
+      }
+
+      if (prepared.text || prepared.inlineData) {
+        preparedParts.push(prepared);
+      }
+    }
+
+    return preparedParts;
+  }
+
+  private async normalizeMessageParts(
+    parts: MessagePartDto[],
+  ): Promise<GeminiPart[]> {
+    const preparedParts: GeminiPart[] = [];
+
+    for (const part of parts) {
+      const prepared: GeminiPart = {};
+
+      if (part.text?.trim()) {
+        prepared.text = part.text;
+      }
+
+      if (part.inlineData) {
+        const { base64, mimeType } = await this.ensureInlineDataBase64(
+          part.inlineData,
+        );
+        prepared.inlineData = {
+          mimeType,
+          data: base64,
+        };
+      }
+
+      if (prepared.text || prepared.inlineData) {
+        preparedParts.push(prepared);
+      }
+    }
+
+    return preparedParts;
+  }
+
+  private static mapAiChatPartsToMessageParts(
+    parts: AiChatPartDto[],
+  ): MessagePartDto[] {
+    return parts
+      .map((part) => ({
+        text: part.text?.trim() || undefined,
+        inlineData: part.inlineData
+          ? {
+              mimeType: part.inlineData.mimeType,
+              data: part.inlineData.data,
+              url: part.inlineData.url,
+            }
+          : undefined,
+      }))
+      .filter((part) => part.text || part.inlineData);
+  }
+
+  private static mapGeminiPartsToMessageParts(
+    parts: GeminiPart[] | undefined,
+  ): MessagePartDto[] {
+    if (!parts?.length) {
+      return [];
+    }
+
+    return parts
+      .map((part) => ({
+        text: part.text?.trim() || undefined,
+        inlineData: part.inlineData
+          ? {
+              mimeType: part.inlineData.mimeType,
+              data: part.inlineData.data,
+              url: part.inlineData.url,
+            }
+          : undefined,
+      }))
+      .filter((part) => part.text || part.inlineData);
+  }
+
+  private static deserializeStoredParts(
+    content?: string,
+  ): MessagePartDto[] | null {
+    if (!content) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(content);
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+
+      return parsed
+        .map((item) => ({
+          text:
+            typeof item?.text === 'string' && item.text.trim().length > 0
+              ? item.text
+              : undefined,
+          inlineData: item?.inlineData
+            ? {
+                mimeType: item.inlineData.mimeType,
+                data: item.inlineData.data,
+                url: item.inlineData.url,
+              }
+            : undefined,
+        }))
+        .filter((item) => item.text || item.inlineData);
+    } catch {
+      return null;
+    }
+  }
+
+  private static mapMessageRoleToGemini(role: MessageRole): GeminiRole {
+    switch (role) {
+      case MessageRole.ASSISTANT:
+        return 'model';
+      case MessageRole.SYSTEM:
+        return 'system';
+      default:
+        return 'user';
+    }
+  }
+
+  async chat(dto: AiChatRequestDto): Promise<AiChatCandidateContentDto> {
+    if (!this.apiKey) {
+      this.logger.error('AI_API_KEY 未配置');
+      throw new InternalServerErrorException('AI 服务未正确配置');
+    }
+
+    const historyContents = await this.buildConversationContext(dto.sessionId);
+    const preparedUserParts = await this.normalizeIncomingParts(dto.parts);
+    const serializedUserParts = AiService.mapAiChatPartsToMessageParts(
+      dto.parts,
+    );
+
+    const requestContents: GeminiContent[] = [
+      ...historyContents,
+      {
+        role: 'user',
+        parts: preparedUserParts,
+      },
+    ];
+
+    await this.messageService.create({
+      sessionId: dto.sessionId,
+      role: MessageRole.USER,
+      content: JSON.stringify(serializedUserParts),
+      model: dto.model,
+    });
+
+    const targetModel = dto.model || this.imageModel;
+
+    const requestBody: GeminiGenerateContentRequest = {
+      contents: requestContents,
+      generationConfig: {
+        responseModalities: ['Image'],
+      },
+    };
+
+    try {
+      const response =
+        await this.httpClient.post<GeminiGenerateContentResponse>(
+          `/v1beta/models/${targetModel}:generateContent`,
+          requestBody,
+          {
+            params: { key: this.apiKey },
+          },
+        );
+
+      await this.enrichResponseWithImageUrls(response.data);
+
+      const candidate = response.data.candidates?.[0];
+      const content = candidate?.content;
+
+      if (!content) {
+        throw new InternalServerErrorException('模型未返回内容');
+      }
+
+      const assistantParts = AiService.mapGeminiPartsToMessageParts(
+        content.parts,
+      );
+
+      await this.messageService.create({
+        sessionId: dto.sessionId,
+        role: MessageRole.ASSISTANT,
+        content: JSON.stringify(assistantParts),
+        model: targetModel,
+        metadata: {
+          finishReason: candidate?.finishReason,
+          safetyRatings: candidate?.safetyRatings,
+          promptFeedback: response.data.promptFeedback,
+          usageMetadata: response.data.usageMetadata,
+        },
+      });
+
+      return content as AiChatCandidateContentDto;
     } catch (error) {
       const axiosError = error as AxiosError;
       const message = axiosError.response?.data || axiosError.message || error;

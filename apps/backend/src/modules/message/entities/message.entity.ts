@@ -9,7 +9,7 @@ export enum MessageRole {
 
 @Schema({
   timestamps: true,
-  collection: 'ai_messages',
+  collection: 'messages',
 })
 export class Message {
   @Prop({ type: Types.ObjectId, ref: 'Session', required: true })

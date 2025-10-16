@@ -92,6 +92,15 @@ export class SessionService {
       update.status = dto.status;
     }
 
+    if (dto.lastMessage !== undefined) {
+      const trimmed = dto.lastMessage?.trim();
+      if (trimmed && trimmed.length > 0) {
+        update.lastMessage = trimmed;
+      } else {
+        update.$unset = { ...(update.$unset || {}), lastMessage: '' };
+      }
+    }
+
     if (dto.lastMessageAt) {
       update.lastMessageAt = new Date(dto.lastMessageAt);
     }
@@ -126,13 +135,15 @@ export class SessionService {
   async recordMessageActivity(
     sessionId: string,
     timestamp: Date = new Date(),
+    lastMessage?: string,
   ): Promise<void> {
+    const update: UpdateQuery<SessionDocument> = { lastMessageAt: timestamp };
+    if (typeof lastMessage === 'string') {
+      update.lastMessage = lastMessage;
+    }
+
     await this.sessionModel
-      .findByIdAndUpdate(
-        sessionId,
-        { lastMessageAt: timestamp },
-        { new: false },
-      )
+      .findByIdAndUpdate(sessionId, update, { new: false })
       .exec();
   }
 

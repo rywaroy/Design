@@ -25,6 +25,11 @@ export class UpdateSessionDto extends PartialType(CreateSessionDto) {
   status?: SessionStatus;
 
   @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: '最近一条消息内容摘要' })
+  lastMessage?: string;
+
+  @IsOptional()
   @ApiPropertyOptional({ description: '更新时间戳，用于外部同步' })
   lastMessageAt?: Date;
 }

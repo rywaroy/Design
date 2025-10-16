@@ -5,7 +5,6 @@ import {
   IsDateString,
   IsEnum,
   IsMongoId,
-  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,

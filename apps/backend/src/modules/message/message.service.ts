@@ -7,6 +7,8 @@ import { SessionService } from '../session/session.service';
 
 @Injectable()
 export class MessageService {
+  private static readonly PREVIEW_LIMIT = 200;
+
   constructor(
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
@@ -43,10 +45,12 @@ export class MessageService {
     }
 
     const message = await this.messageModel.create(payload);
+    const lastMessageSummary = MessageService.deriveLastMessage(dto);
 
     await this.sessionService.recordMessageActivity(
       dto.sessionId,
       message.createdAt,
+      lastMessageSummary,
     );
 
     return message;
@@ -74,5 +78,55 @@ export class MessageService {
 
   async findOne(messageId: string): Promise<MessageDocument | null> {
     return this.messageModel.findById(messageId).exec();
+  }
+
+  private static deriveLastMessage(dto: CreateMessageDto): string | undefined {
+    if (dto.parts?.length) {
+      const texts = dto.parts
+        .map((part) => part.text?.trim())
+        .filter((text): text is string => !!text);
+      if (texts.length) {
+        return MessageService.truncatePreview(texts.join('\n'));
+      }
+
+      if (dto.parts.some((part) => part.inlineData)) {
+        return '[多媒体消息]';
+      }
+    }
+
+    if (dto.content?.trim()) {
+      const trimmed = dto.content.trim();
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          const texts = parsed
+            .map((item) =>
+              typeof item?.text === 'string' ? item.text.trim() : '',
+            )
+            .filter((text) => text.length > 0);
+          if (texts.length) {
+            return MessageService.truncatePreview(texts.join('\n'));
+          }
+          if (parsed.some((item) => item?.inlineData)) {
+            return '[多媒体消息]';
+          }
+          return undefined;
+        }
+      } catch {
+        // treated as plain text below
+      }
+
+      return MessageService.truncatePreview(trimmed);
+    }
+
+    return undefined;
+  }
+
+  private static truncatePreview(value: string): string {
+    if (value.length <= MessageService.PREVIEW_LIMIT) {
+      return value;
+    }
+    return value.slice(0, MessageService.PREVIEW_LIMIT);
   }
 }
