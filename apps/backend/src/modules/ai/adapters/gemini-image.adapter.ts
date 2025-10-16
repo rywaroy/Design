@@ -31,7 +31,7 @@ import {
 } from '../../message/entities/message.entity';
 
 @Injectable()
-export class GeminiMessageAdapter
+export class GeminiImageAdapter
   implements
     AiChatAdapter<
       GeminiContent[],
@@ -39,19 +39,14 @@ export class GeminiMessageAdapter
       GeminiGenerateContentResponse
     >
 {
-  readonly name = 'gemini';
-  private readonly logger = new Logger(GeminiMessageAdapter.name);
+  readonly name = 'Gemini Image';
+  private readonly logger = new Logger(GeminiImageAdapter.name);
 
   constructor(private readonly configService: ConfigService) {}
 
-  supports(dto: AiChatRequestDto): boolean {
-    const model = dto.model?.toLowerCase();
-    if (!model) return true;
-    return model.includes('gemini');
-  }
-
-  private get httpClient(): AxiosInstance {
+  private buildHttpClient(baseUrlOverride?: string): AxiosInstance {
     const baseUrl =
+      baseUrlOverride?.trim() ||
       this.configService.get<string>('ai.baseUrl') ||
       'https://generativelanguage.googleapis.com';
     const timeout = this.configService.get<number>('ai.timeoutMs') || 20000;
@@ -63,8 +58,9 @@ export class GeminiMessageAdapter
     });
   }
 
-  private get apiKey(): string {
-    const key = this.configService.get<string>('ai.apiKey') || '';
+  private resolveApiKey(override?: string): string {
+    const key =
+      override?.trim() || this.configService.get<string>('ai.apiKey') || '';
     if (!key) {
       this.logger.error('AI_API_KEY 未配置');
       throw new InternalServerErrorException('AI 服务未正确配置');
@@ -120,14 +116,14 @@ export class GeminiMessageAdapter
       GeminiGenerateContentRequest
     >,
   ): Promise<GeminiGenerateContentResponse> {
-    const client = this.httpClient;
+    const client = this.buildHttpClient(prepared.endpoint?.baseUrl);
     const modelId = prepared.model;
     try {
       const response = await client.post<GeminiGenerateContentResponse>(
         `/v1beta/models/${modelId}:generateContent`,
         prepared.userRequest,
         {
-          params: { key: this.apiKey },
+          params: { key: this.resolveApiKey(prepared.endpoint?.apiKey) },
         },
       );
       await this.enrichResponseWithImageUrls(response.data);
@@ -148,10 +144,8 @@ export class GeminiMessageAdapter
     const content = candidate?.content;
 
     // 解析模型返回内容（允许未返回图片，仅返回文字）
-    const assistantRecord = GeminiMessageAdapter.parseGeminiParts(
-      content?.parts,
-    );
-    const resolvedRole = GeminiMessageAdapter.mapGeminiRoleToMessage(
+    const assistantRecord = GeminiImageAdapter.parseGeminiParts(content?.parts);
+    const resolvedRole = GeminiImageAdapter.mapGeminiRoleToMessage(
       content?.role,
     );
     const assistantContentRaw = assistantRecord.content?.trim() ?? '';
@@ -163,7 +157,8 @@ export class GeminiMessageAdapter
       ),
     );
     const finalText =
-      assistantContentRaw || (assistantImages.length === 0 ? '模型未返回有效内容' : '');
+      assistantContentRaw ||
+      (assistantImages.length === 0 ? '模型未返回有效内容' : '');
 
     // 仅保留必要的 token 统计信息，并统一成指定字段名
     const usage = raw.usageMetadata;
@@ -210,7 +205,7 @@ export class GeminiMessageAdapter
       }
 
       contents.push({
-        role: GeminiMessageAdapter.mapMessageRoleToGemini(message.role),
+        role: GeminiImageAdapter.mapMessageRoleToGemini(message.role),
         parts,
       });
     }
@@ -221,8 +216,8 @@ export class GeminiMessageAdapter
   private async normalizeStoredMessage(
     message: MessageDocument,
   ): Promise<GeminiPart[]> {
-    const payload = GeminiMessageAdapter.resolveStoredPayload(message);
-    if (!GeminiMessageAdapter.hasPayloadContent(payload)) {
+    const payload = GeminiImageAdapter.resolveStoredPayload(message);
+    if (!GeminiImageAdapter.hasPayloadContent(payload)) {
       return [];
     }
 
@@ -255,7 +250,7 @@ export class GeminiMessageAdapter
     const fallbackMime = 'image/png';
     if (inlineData.data && inlineData.data.trim()) {
       return {
-        base64: GeminiMessageAdapter.stripBase64Prefix(inlineData.data),
+        base64: GeminiImageAdapter.stripBase64Prefix(inlineData.data),
         mimeType: inlineData.mimeType?.trim() || fallbackMime,
       };
     }
@@ -293,7 +288,7 @@ export class GeminiMessageAdapter
     base64: string,
     mimeType?: string,
   ): Promise<{ path: string; url: string; filename: string }> {
-    const normalized = GeminiMessageAdapter.stripBase64Prefix(base64);
+    const normalized = GeminiImageAdapter.stripBase64Prefix(base64);
     const buffer = Buffer.from(normalized, 'base64');
 
     const now = new Date();
@@ -308,7 +303,7 @@ export class GeminiMessageAdapter
     }
 
     const effectiveMime = mimeType?.trim() || 'image/png';
-    const extension = GeminiMessageAdapter.resolveExtension(effectiveMime);
+    const extension = GeminiImageAdapter.resolveExtension(effectiveMime);
     const filename = `${uuidv4()}.${extension}`;
     const filePath = path.join(uploadDir, filename);
 

@@ -23,6 +23,10 @@ export interface AdapterPreparedRequest<
   userRequest: TRequest;
   userRecord: ChatAdapterUserRecord;
   model: string;
+  endpoint?: {
+    baseUrl?: string;
+    apiKey?: string;
+  };
 }
 
 export interface AdapterNormalizedResponse {
@@ -36,7 +40,6 @@ export interface AiChatAdapter<
   TRawResponse = unknown,
 > {
   readonly name: string;
-  supports(dto: AiChatRequestDto): boolean;
   prepare(
     dto: AiChatRequestDto,
     history: MessageDocument[],

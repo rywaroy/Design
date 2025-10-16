@@ -15,7 +15,8 @@ import {
   GeminiPart,
 } from './providers/gemini.types';
 import { AiChatAdapter } from './adapters/chat-adapter.interface';
-import { GeminiMessageAdapter } from './adapters/gemini-message.adapter';
+import { GeminiImageAdapter } from './adapters/gemini-image.adapter';
+import { ModelService, ResolvedModelConfig } from '../model/model.service';
 
 export interface AiPromptParams {
   userPrompt: string;
@@ -39,7 +40,8 @@ export class AiService {
   constructor(
     private readonly configService: ConfigService,
     private readonly messageService: MessageService,
-    private readonly geminiAdapter: GeminiMessageAdapter,
+    private readonly geminiAdapter: GeminiImageAdapter,
+    private readonly modelService: ModelService,
   ) {
     const baseUrl =
       this.configService.get<string>('ai.baseUrl') ||
@@ -135,9 +137,18 @@ export class AiService {
   }
 
   async chat(dto: AiChatRequestDto): Promise<AiChatResponseDto> {
-    const adapter = this.selectAdapter(dto);
+    const resolved: ResolvedModelConfig = await this.modelService.resolveForChat(
+      dto.model,
+    );
+
+    // 直接按名称匹配适配器，未命中则报错
+    const adapter = this.adapters.find(
+      (candidateAdapter) =>
+        candidateAdapter.name.toLowerCase() ===
+        (resolved.adapter || '').toLowerCase(),
+    );
     if (!adapter) {
-      throw new BadRequestException('暂不支持所选模型');
+      throw new BadRequestException('找不到适配器');
     }
 
     const history = await this.messageService.list({
@@ -145,7 +156,17 @@ export class AiService {
       limit: this.chatHistoryLimit,
     });
 
-    const prepared = await adapter.prepare(dto, history);
+    const prepared = await adapter.prepare({ ...dto, model: resolved.model }, history);
+
+    // 将模型配置注入到适配器调用的 prepared 中
+    const patchedPrepared = {
+      ...prepared,
+      model: resolved.model || prepared.model,
+      endpoint: {
+        baseUrl: resolved.baseUrl,
+        apiKey: resolved.apiKey,
+      },
+    } as typeof prepared;
 
     await this.messageService.create({
       sessionId: dto.sessionId,
@@ -155,8 +176,8 @@ export class AiService {
     });
 
     try {
-      const rawResponse = await adapter.send(prepared);
-      const normalized = await adapter.normalize(rawResponse, prepared);
+      const rawResponse = await adapter.send(patchedPrepared);
+      const normalized = await adapter.normalize(rawResponse, patchedPrepared);
 
       await this.messageService.create({
         sessionId: dto.sessionId,
@@ -172,9 +193,7 @@ export class AiService {
     }
   }
 
-  private selectAdapter(dto: AiChatRequestDto): AiChatAdapter | undefined {
-    return this.adapters.find((adapter) => adapter.supports(dto));
-  }
+  // selectAdapter removed: adapter is chosen strictly by name via ModelService result
 
   private handleAdapterError(error: unknown): never {
     if (error instanceof AxiosError) {
