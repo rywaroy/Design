@@ -105,7 +105,8 @@ export class GeminiMessageAdapter
       userRequest: {
         contents,
         generationConfig: {
-          responseModalities: ['Image'],
+          // 允许模型返回图片或文字任一形式
+          responseModalities: ['Image', 'Text'],
         },
       },
       userRecord,
@@ -145,17 +146,15 @@ export class GeminiMessageAdapter
   ): Promise<AdapterNormalizedResponse> {
     const candidate = raw.candidates?.[0];
     const content = candidate?.content;
-    if (!content) {
-      throw new InternalServerErrorException('模型未返回内容');
-    }
 
+    // 解析模型返回内容（允许未返回图片，仅返回文字）
     const assistantRecord = GeminiMessageAdapter.parseGeminiParts(
-      content.parts,
+      content?.parts,
     );
     const resolvedRole = GeminiMessageAdapter.mapGeminiRoleToMessage(
-      content.role,
+      content?.role,
     );
-    const assistantContent = assistantRecord.content?.trim() ?? '';
+    const assistantContentRaw = assistantRecord.content?.trim() ?? '';
     const assistantImages = Array.from(
       new Set(
         assistantRecord.images
@@ -163,28 +162,31 @@ export class GeminiMessageAdapter
           .filter((url): url is string => !!url?.length),
       ),
     );
+    const finalText =
+      assistantContentRaw || (assistantImages.length === 0 ? '模型未返回有效内容' : '');
 
-    if (!assistantContent && assistantImages.length === 0) {
-      throw new InternalServerErrorException('模型未返回有效内容');
-    }
+    // 仅保留必要的 token 统计信息，并统一成指定字段名
+    const usage = raw.usageMetadata;
+    const compactMetadata = Object.fromEntries(
+      Object.entries({
+        promptTokens: usage?.promptTokenCount,
+        completionTokens: usage?.candidatesTokenCount,
+        totalTokens: usage?.totalTokenCount,
+      }).filter(([, v]) => v !== undefined),
+    );
 
     const assistantPayload: ChatAdapterAssistantRecord & { model: string } = {
-      content: assistantContent || undefined,
+      content: finalText || undefined,
       images: assistantImages,
       model: prepared.model,
       role: resolvedRole,
-      metadata: {
-        finishReason: candidate?.finishReason,
-        safetyRatings: candidate?.safetyRatings,
-        promptFeedback: raw.promptFeedback,
-        usageMetadata: raw.usageMetadata,
-      },
+      metadata: compactMetadata,
     };
 
     return {
       assistantRecord: assistantPayload,
       response: {
-        content: assistantContent || undefined,
+        content: finalText || undefined,
         images: assistantImages,
         metadata: assistantPayload.metadata,
       },

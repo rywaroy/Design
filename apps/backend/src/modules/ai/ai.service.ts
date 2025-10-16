@@ -152,7 +152,6 @@ export class AiService {
       role: MessageRole.USER,
       content: prepared.userRecord.content,
       images: prepared.userRecord.images,
-      model: prepared.userRecord.model,
     });
 
     try {
@@ -164,7 +163,6 @@ export class AiService {
         role: normalized.assistantRecord.role ?? MessageRole.ASSISTANT,
         content: normalized.assistantRecord.content,
         images: normalized.assistantRecord.images,
-        model: normalized.assistantRecord.model,
         metadata: normalized.assistantRecord.metadata,
       });
 

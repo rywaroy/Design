@@ -39,10 +39,6 @@ export class MessageService {
       payload.images = normalizedImages;
     }
 
-    if (dto.model) {
-      payload.model = dto.model;
-    }
-
     if (dto.metadata) {
       payload.metadata = dto.metadata;
     }

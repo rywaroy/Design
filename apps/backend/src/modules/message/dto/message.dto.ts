@@ -53,11 +53,6 @@ export class CreateMessageDto {
   images?: string[];
 
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: '使用的模型名称' })
-  model?: string;
-
-  @IsOptional()
   @IsObject()
   @ApiPropertyOptional({ description: '额外的模型响应元数据' })
   metadata?: Record<string, unknown>;

@@ -24,9 +24,6 @@ export class Message {
   @Prop({ type: [String], default: [] })
   images?: string[];
 
-  @Prop()
-  model?: string;
-
   @Prop({ type: SchemaTypes.Mixed })
   metadata?: Record<string, unknown>;
 
