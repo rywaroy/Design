@@ -13,6 +13,8 @@ import { RedisModule } from './modules/redis/redis.module';
 import { ProjectModule } from './modules/project/project.module';
 import { ScreenModule } from './modules/screen/screen.module';
 import { FavoriteModule } from './modules/favorite/favorite.module';
+import { SessionModule } from './modules/session/session.module';
+import { MessageModule } from './modules/message/message.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { FavoriteModule } from './modules/favorite/favorite.module';
     ScreenModule,
     FavoriteModule,
     RedisModule,
+    SessionModule,
+    MessageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

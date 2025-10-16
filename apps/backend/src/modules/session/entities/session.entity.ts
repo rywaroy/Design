@@ -1,0 +1,42 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+
+export enum SessionStatus {
+  ACTIVE = 'active',
+  ARCHIVED = 'archived',
+}
+
+@Schema({
+  timestamps: true,
+  collection: 'ai_sessions',
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+})
+export class Session {
+  @Prop({ required: true })
+  userId: string;
+
+  @Prop({ required: true })
+  title: string;
+
+  @Prop({ type: String, enum: SessionStatus, default: SessionStatus.ACTIVE })
+  status: SessionStatus;
+
+  @Prop({ type: Date })
+  lastMessageAt?: Date;
+}
+
+export type SessionDocument = HydratedDocument<Session>;
+
+export const SessionSchema = SchemaFactory.createForClass(Session);
+
+SessionSchema.index({ userId: 1, updatedAt: -1 });
+SessionSchema.index({ userId: 1, status: 1 });
+
+SessionSchema.virtual('messages', {
+  ref: 'Message',
+  localField: '_id',
+  foreignField: 'sessionId',
+  justOne: false,
+  options: { sort: { createdAt: -1 } },
+});
