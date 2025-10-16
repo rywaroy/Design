@@ -6,10 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError, AxiosInstance } from 'axios';
-import * as fs from 'fs';
-import { promises as fsPromises } from 'fs';
-import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { AiChatRequestDto, AiChatResponseDto } from './dto/ai-chat.dto';
 import { MessageService } from '../message/message.service';
 import { MessageRole } from '../message/entities/message.entity';
@@ -36,7 +32,6 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly httpClient: AxiosInstance;
   private readonly model: string;
-  private readonly imageModel: string;
   private readonly apiKey: string;
   private readonly adapters: AiChatAdapter[];
   private readonly chatHistoryLimit = 50;
@@ -53,10 +48,7 @@ export class AiService {
 
     this.apiKey = this.configService.get<string>('ai.apiKey') || '';
     this.model =
-      this.configService.get<string>('ai.model') || 'gemini-1.5-flash';
-    this.imageModel =
-      this.configService.get<string>('ai.imageModel') ||
-      'models/gemini-2.5-flash-image';
+      this.configService.get<string>('ai.model') || 'gemini-2.5-flash';
 
     this.httpClient = axios.create({
       baseURL: baseUrl,
@@ -169,7 +161,7 @@ export class AiService {
 
       await this.messageService.create({
         sessionId: dto.sessionId,
-        role: MessageRole.ASSISTANT,
+        role: normalized.assistantRecord.role ?? MessageRole.ASSISTANT,
         content: normalized.assistantRecord.content,
         images: normalized.assistantRecord.images,
         model: normalized.assistantRecord.model,

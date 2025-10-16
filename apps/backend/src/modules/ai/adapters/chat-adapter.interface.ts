@@ -1,5 +1,8 @@
 import { AiChatRequestDto, AiChatResponseDto } from '../dto/ai-chat.dto';
-import { MessageDocument } from '../../message/entities/message.entity';
+import {
+  MessageDocument,
+  MessageRole,
+} from '../../message/entities/message.entity';
 
 export interface ChatAdapterUserRecord {
   content?: string;
@@ -9,6 +12,7 @@ export interface ChatAdapterUserRecord {
 
 export interface ChatAdapterAssistantRecord extends ChatAdapterUserRecord {
   metadata?: Record<string, unknown>;
+  role?: MessageRole;
 }
 
 export interface AdapterPreparedRequest<

@@ -6,6 +6,9 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { AiChatRequestDto } from '../dto/ai-chat.dto';
 import {
   GeminiContent,
@@ -13,6 +16,7 @@ import {
   GeminiGenerateContentResponse,
   GeminiInlineData,
   GeminiPart,
+  GeminiRole,
 } from '../providers/gemini.types';
 import {
   AdapterNormalizedResponse,
@@ -148,6 +152,9 @@ export class GeminiMessageAdapter
     const assistantRecord = GeminiMessageAdapter.parseGeminiParts(
       content.parts,
     );
+    const resolvedRole = GeminiMessageAdapter.mapGeminiRoleToMessage(
+      content.role,
+    );
     const assistantContent = assistantRecord.content?.trim() ?? '';
     const assistantImages = Array.from(
       new Set(
@@ -165,6 +172,7 @@ export class GeminiMessageAdapter
       content: assistantContent || undefined,
       images: assistantImages,
       model: prepared.model,
+      role: resolvedRole,
       metadata: {
         finishReason: candidate?.finishReason,
         safetyRatings: candidate?.safetyRatings,
@@ -293,15 +301,12 @@ export class GeminiMessageAdapter
     const dateFolder = `${year}${month}${day}`;
     const uploadDir = `uploads/${dateFolder}`;
 
-    const fs = await import('fs');
-    const path = await import('path');
     if (!fs.existsSync(uploadDir)) {
       await fs.promises.mkdir(uploadDir, { recursive: true });
     }
 
     const effectiveMime = mimeType?.trim() || 'image/png';
     const extension = GeminiMessageAdapter.resolveExtension(effectiveMime);
-    const { v4: uuidv4 } = await import('uuid');
     const filename = `${uuidv4()}.${extension}`;
     const filePath = path.join(uploadDir, filename);
 
@@ -462,6 +467,17 @@ export class GeminiMessageAdapter
         return 'system';
       default:
         return 'user';
+    }
+  }
+
+  private static mapGeminiRoleToMessage(role?: GeminiRole): MessageRole {
+    switch (role) {
+      case 'system':
+        return MessageRole.SYSTEM;
+      case 'user':
+        return MessageRole.USER;
+      default:
+        return MessageRole.ASSISTANT;
     }
   }
 
