@@ -50,6 +50,9 @@ export interface GeminiUsageMetadata {
 
 export interface GeminiGenerationConfig {
   responseModalities?: string[];
+  imageConfig: {
+    aspectRatio: string;
+  };
 }
 
 export interface GeminiGenerateContentRequest {

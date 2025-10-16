@@ -46,6 +46,12 @@ export class AiChatRequestDto {
   @IsOptional()
   @IsString()
   model?: string;
+
+  @ApiPropertyOptional({ description: '图片生成比例，例如 1:1、16:9、9:16；默认 1:1' })
+  @Transform(trimValue)
+  @IsOptional()
+  @IsString()
+  aspectRatio?: string;
 }
 
 export class AiChatResponseDto {
