@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -8,42 +8,15 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   Min,
-  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MessageRole } from '../entities/message.entity';
 
-export class MessageInlineDataDto {
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: '资源类型，例如 image/png' })
-  mimeType?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: 'Base64 数据，或模型返回的数据字符串' })
-  data?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: '可直接访问的资源 URL' })
-  url?: string;
-}
-
-export class MessagePartDto {
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: '文本内容' })
-  text?: string;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => MessageInlineDataDto)
-  @ApiPropertyOptional({ description: '图像或文件数据' })
-  inlineData?: MessageInlineDataDto;
-}
+const trimValue = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 export class CreateMessageDto {
   @IsMongoId()
@@ -60,19 +33,24 @@ export class CreateMessageDto {
 
   @IsOptional()
   @IsString()
-  @ApiPropertyOptional({ description: '纯文本或序列化后的 JSON 内容' })
+  @Transform(trimValue)
+  @ApiPropertyOptional({ description: '消息文本内容' })
   content?: string;
 
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(50)
-  @ValidateNested({ each: true })
-  @Type(() => MessagePartDto)
   @ApiPropertyOptional({
-    description: '结构化内容片段，将被序列化后存入 content 字段',
-    type: [MessagePartDto],
+    description: '图片 URL 列表',
+    type: String,
+    isArray: true,
   })
-  parts?: MessagePartDto[];
+  @IsUrl(
+    { require_protocol: true },
+    { each: true, message: 'images 每项必须为合法 URL' },
+  )
+  @Type(() => String)
+  images?: string[];
 
   @IsOptional()
   @IsString()

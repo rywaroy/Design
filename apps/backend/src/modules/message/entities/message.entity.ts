@@ -18,8 +18,11 @@ export class Message {
   @Prop({ type: String, enum: MessageRole, required: true })
   role: MessageRole;
 
-  @Prop({ required: true, type: String })
-  content: string;
+  @Prop({ type: String })
+  content?: string;
+
+  @Prop({ type: [String], default: [] })
+  images?: string[];
 
   @Prop()
   model?: string;

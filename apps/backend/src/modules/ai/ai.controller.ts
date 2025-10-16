@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AiService } from './ai.service';
-import { AiChatRequestDto, AiChatCandidateContentDto } from './dto/ai-chat.dto';
+import { AiChatRequestDto, AiChatResponseDto } from './dto/ai-chat.dto';
 
 @ApiTags('AI')
 @Controller('ai')
@@ -17,11 +17,9 @@ export class AiController {
   @ApiBody({ type: AiChatRequestDto })
   @ApiOkResponse({
     description: '模型回复成功',
-    type: AiChatCandidateContentDto,
+    type: AiChatResponseDto,
   })
-  async chat(
-    @Body() dto: AiChatRequestDto,
-  ): Promise<AiChatCandidateContentDto> {
+  async chat(@Body() dto: AiChatRequestDto): Promise<AiChatResponseDto> {
     return this.aiService.chat(dto);
   }
 }

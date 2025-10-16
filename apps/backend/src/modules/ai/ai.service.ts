@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -9,85 +10,16 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  AiChatCandidateContentDto,
-  AiChatPartDto,
-  AiChatRequestDto,
-} from './dto/ai-chat.dto';
+import { AiChatRequestDto, AiChatResponseDto } from './dto/ai-chat.dto';
 import { MessageService } from '../message/message.service';
+import { MessageRole } from '../message/entities/message.entity';
 import {
-  MessageDocument,
-  MessageRole,
-} from '../message/entities/message.entity';
-import { MessagePartDto } from '../message/dto/message.dto';
-
-type GeminiRole = 'user' | 'model' | 'system';
-
-export interface GeminiInlineData {
-  mimeType?: string;
-  data?: string;
-  url?: string;
-}
-
-export interface GeminiPart {
-  text?: string;
-  inlineData?: GeminiInlineData;
-}
-
-interface GeminiContent {
-  role?: GeminiRole;
-  parts: GeminiPart[];
-}
-
-export interface GeminiSafetyRating {
-  category?: string;
-  probability?: string;
-  blocked?: boolean;
-  probabilityScore?: number;
-}
-
-export interface GeminiCandidate {
-  content?: GeminiContent;
-  finishReason?: string;
-  index?: number;
-  safetyRatings?: GeminiSafetyRating[] | null;
-}
-
-interface GeminiPromptFeedback {
-  blockReason?: string;
-  safetyRatings?: GeminiSafetyRating[] | null;
-}
-
-interface GeminiTokenDetails {
-  modality?: string;
-  tokenCount?: number;
-}
-
-interface GeminiUsageMetadata {
-  promptTokenCount?: number;
-  candidatesTokenCount?: number;
-  totalTokenCount?: number;
-  promptTokensDetails?: GeminiTokenDetails[];
-  candidatesTokensDetails?: GeminiTokenDetails[];
-}
-
-interface GeminiGenerationConfig {
-  responseModalities?: string[];
-}
-
-interface GeminiGenerateContentRequest {
-  contents: GeminiContent[];
-  systemInstruction?: GeminiContent;
-  generationConfig?: GeminiGenerationConfig;
-}
-
-export interface GeminiGenerateContentResponse {
-  candidates?: GeminiCandidate[];
-  promptFeedback?: GeminiPromptFeedback;
-  usageMetadata?: GeminiUsageMetadata;
-  modelVersion?: string;
-  responseId?: string;
-}
+  GeminiGenerateContentRequest,
+  GeminiGenerateContentResponse,
+  GeminiPart,
+} from './providers/gemini.types';
+import { AiChatAdapter } from './adapters/chat-adapter.interface';
+import { GeminiMessageAdapter } from './adapters/gemini-message.adapter';
 
 export interface AiPromptParams {
   userPrompt: string;
@@ -106,11 +38,13 @@ export class AiService {
   private readonly model: string;
   private readonly imageModel: string;
   private readonly apiKey: string;
+  private readonly adapters: AiChatAdapter[];
   private readonly chatHistoryLimit = 50;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly messageService: MessageService,
+    private readonly geminiAdapter: GeminiMessageAdapter,
   ) {
     const baseUrl =
       this.configService.get<string>('ai.baseUrl') ||
@@ -131,6 +65,7 @@ export class AiService {
         'Content-Type': 'application/json',
       },
     });
+    this.adapters = [this.geminiAdapter];
   }
 
   async generateJsonResponse<T>(params: AiPromptParams): Promise<T> {
@@ -207,345 +142,66 @@ export class AiService {
     }
   }
 
-  private async buildConversationContext(
-    sessionId: string,
-  ): Promise<GeminiContent[]> {
+  async chat(dto: AiChatRequestDto): Promise<AiChatResponseDto> {
+    const adapter = this.selectAdapter(dto);
+    if (!adapter) {
+      throw new BadRequestException('暂不支持所选模型');
+    }
+
     const history = await this.messageService.list({
-      sessionId,
+      sessionId: dto.sessionId,
       limit: this.chatHistoryLimit,
     });
 
-    if (!history.length) {
-      return [];
-    }
-
-    const chronological = [...history].reverse();
-    const contents: GeminiContent[] = [];
-
-    for (const message of chronological) {
-      const parts = await this.normalizeStoredMessage(message);
-      if (!parts.length) {
-        continue;
-      }
-
-      contents.push({
-        role: AiService.mapMessageRoleToGemini(message.role),
-        parts,
-      });
-    }
-
-    return contents;
-  }
-
-  private async normalizeStoredMessage(
-    message: MessageDocument,
-  ): Promise<GeminiPart[]> {
-    const parsedParts = AiService.deserializeStoredParts(message.content);
-    if (parsedParts) {
-      return this.normalizeMessageParts(parsedParts);
-    }
-
-    const text = message.content?.trim();
-    if (!text) {
-      return [];
-    }
-
-    return [
-      {
-        text,
-      },
-    ];
-  }
-
-  private async normalizeIncomingParts(
-    parts: AiChatPartDto[],
-  ): Promise<GeminiPart[]> {
-    const preparedParts: GeminiPart[] = [];
-
-    for (const part of parts) {
-      const prepared: GeminiPart = {};
-
-      if (part.text?.trim()) {
-        prepared.text = part.text;
-      }
-
-      if (part.inlineData) {
-        const { base64, mimeType } = await this.ensureInlineDataBase64(
-          part.inlineData,
-        );
-        prepared.inlineData = {
-          mimeType,
-          data: base64,
-        };
-      }
-
-      if (prepared.text || prepared.inlineData) {
-        preparedParts.push(prepared);
-      }
-    }
-
-    return preparedParts;
-  }
-
-  private async normalizeMessageParts(
-    parts: MessagePartDto[],
-  ): Promise<GeminiPart[]> {
-    const preparedParts: GeminiPart[] = [];
-
-    for (const part of parts) {
-      const prepared: GeminiPart = {};
-
-      if (part.text?.trim()) {
-        prepared.text = part.text;
-      }
-
-      if (part.inlineData) {
-        const { base64, mimeType } = await this.ensureInlineDataBase64(
-          part.inlineData,
-        );
-        prepared.inlineData = {
-          mimeType,
-          data: base64,
-        };
-      }
-
-      if (prepared.text || prepared.inlineData) {
-        preparedParts.push(prepared);
-      }
-    }
-
-    return preparedParts;
-  }
-
-  private static mapAiChatPartsToMessageParts(
-    parts: AiChatPartDto[],
-  ): MessagePartDto[] {
-    return parts
-      .map((part) => ({
-        text: part.text?.trim() || undefined,
-        inlineData: part.inlineData
-          ? {
-              mimeType: part.inlineData.mimeType,
-              data: part.inlineData.data,
-              url: part.inlineData.url,
-            }
-          : undefined,
-      }))
-      .filter((part) => part.text || part.inlineData);
-  }
-
-  private static mapGeminiPartsToMessageParts(
-    parts: GeminiPart[] | undefined,
-  ): MessagePartDto[] {
-    if (!parts?.length) {
-      return [];
-    }
-
-    return parts
-      .map((part) => ({
-        text: part.text?.trim() || undefined,
-        inlineData: part.inlineData
-          ? {
-              mimeType: part.inlineData.mimeType,
-              data: part.inlineData.data,
-              url: part.inlineData.url,
-            }
-          : undefined,
-      }))
-      .filter((part) => part.text || part.inlineData);
-  }
-
-  private static deserializeStoredParts(
-    content?: string,
-  ): MessagePartDto[] | null {
-    if (!content) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(content);
-      if (!Array.isArray(parsed)) {
-        return null;
-      }
-
-      return parsed
-        .map((item) => ({
-          text:
-            typeof item?.text === 'string' && item.text.trim().length > 0
-              ? item.text
-              : undefined,
-          inlineData: item?.inlineData
-            ? {
-                mimeType: item.inlineData.mimeType,
-                data: item.inlineData.data,
-                url: item.inlineData.url,
-              }
-            : undefined,
-        }))
-        .filter((item) => item.text || item.inlineData);
-    } catch {
-      return null;
-    }
-  }
-
-  private static mapMessageRoleToGemini(role: MessageRole): GeminiRole {
-    switch (role) {
-      case MessageRole.ASSISTANT:
-        return 'model';
-      case MessageRole.SYSTEM:
-        return 'system';
-      default:
-        return 'user';
-    }
-  }
-
-  async chat(dto: AiChatRequestDto): Promise<AiChatCandidateContentDto> {
-    if (!this.apiKey) {
-      this.logger.error('AI_API_KEY 未配置');
-      throw new InternalServerErrorException('AI 服务未正确配置');
-    }
-
-    const historyContents = await this.buildConversationContext(dto.sessionId);
-    const preparedUserParts = await this.normalizeIncomingParts(dto.parts);
-    const serializedUserParts = AiService.mapAiChatPartsToMessageParts(
-      dto.parts,
-    );
-
-    const requestContents: GeminiContent[] = [
-      ...historyContents,
-      {
-        role: 'user',
-        parts: preparedUserParts,
-      },
-    ];
+    const prepared = await adapter.prepare(dto, history);
 
     await this.messageService.create({
       sessionId: dto.sessionId,
       role: MessageRole.USER,
-      content: JSON.stringify(serializedUserParts),
-      model: dto.model,
+      content: prepared.userRecord.content,
+      images: prepared.userRecord.images,
+      model: prepared.userRecord.model,
     });
 
-    const targetModel = dto.model || this.imageModel;
-
-    const requestBody: GeminiGenerateContentRequest = {
-      contents: requestContents,
-      generationConfig: {
-        responseModalities: ['Image'],
-      },
-    };
-
     try {
-      const response =
-        await this.httpClient.post<GeminiGenerateContentResponse>(
-          `/v1beta/models/${targetModel}:generateContent`,
-          requestBody,
-          {
-            params: { key: this.apiKey },
-          },
-        );
-
-      await this.enrichResponseWithImageUrls(response.data);
-
-      const candidate = response.data.candidates?.[0];
-      const content = candidate?.content;
-
-      if (!content) {
-        throw new InternalServerErrorException('模型未返回内容');
-      }
-
-      const assistantParts = AiService.mapGeminiPartsToMessageParts(
-        content.parts,
-      );
+      const rawResponse = await adapter.send(prepared);
+      const normalized = await adapter.normalize(rawResponse, prepared);
 
       await this.messageService.create({
         sessionId: dto.sessionId,
         role: MessageRole.ASSISTANT,
-        content: JSON.stringify(assistantParts),
-        model: targetModel,
-        metadata: {
-          finishReason: candidate?.finishReason,
-          safetyRatings: candidate?.safetyRatings,
-          promptFeedback: response.data.promptFeedback,
-          usageMetadata: response.data.usageMetadata,
-        },
+        content: normalized.assistantRecord.content,
+        images: normalized.assistantRecord.images,
+        model: normalized.assistantRecord.model,
+        metadata: normalized.assistantRecord.metadata,
       });
 
-      return content as AiChatCandidateContentDto;
+      return normalized.response;
     } catch (error) {
-      const axiosError = error as AxiosError;
-      const message = axiosError.response?.data || axiosError.message || error;
-      this.logger.error(`调用 AI 服务失败: ${JSON.stringify(message)}`);
-      throw new InternalServerErrorException(
-        `AI 服务调用失败 - ${JSON.stringify(message)}`,
-      );
+      this.handleAdapterError(error);
     }
   }
 
-  async generateImageContent(
-    params: AiContentParams,
-  ): Promise<GeminiGenerateContentResponse> {
-    if (!this.apiKey) {
-      this.logger.error('AI_API_KEY 未配置');
-      throw new InternalServerErrorException('AI 服务未正确配置');
-    }
+  private selectAdapter(dto: AiChatRequestDto): AiChatAdapter | undefined {
+    return this.adapters.find((adapter) => adapter.supports(dto));
+  }
 
-    const preparedParts: GeminiPart[] = [];
-    for (const part of params.parts) {
-      const prepared: GeminiPart = {};
-      if (part.text) {
-        prepared.text = part.text;
-      }
-
-      const inlineSource = part.inlineData;
-      if (inlineSource) {
-        const { base64, mimeType } =
-          await this.ensureInlineDataBase64(inlineSource);
-
-        prepared.inlineData = {
-          mimeType,
-          data: base64,
-        };
-      }
-
-      preparedParts.push(prepared);
-    }
-
-    const requestBody: GeminiGenerateContentRequest = {
-      contents: [
-        {
-          role: 'user',
-          parts: preparedParts,
-        },
-      ],
-      generationConfig: {
-        responseModalities: ['Image'],
-      },
-    };
-
-    const targetModel = params.model || this.imageModel;
-
-    try {
-      const response =
-        await this.httpClient.post<GeminiGenerateContentResponse>(
-          `/v1beta/models/${targetModel}:generateContent`,
-          requestBody,
-          {
-            params: { key: this.apiKey },
-          },
-        );
-
-      await this.enrichResponseWithImageUrls(response.data);
-
-      return response.data;
-    } catch (error) {
-      const axiosError = error as AxiosError;
-      const message = axiosError.response?.data || axiosError.message || error;
+  private handleAdapterError(error: unknown): never {
+    if (error instanceof AxiosError) {
+      const message = error.response?.data || error.message || error;
       this.logger.error(`调用 AI 服务失败: ${JSON.stringify(message)}`);
       throw new InternalServerErrorException(
         `AI 服务调用失败 - ${JSON.stringify(message)}`,
       );
     }
+
+    if (error instanceof Error) {
+      this.logger.error(`适配器执行失败: ${error.message}`);
+      throw new InternalServerErrorException('AI 处理失败');
+    }
+
+    this.logger.error(`适配器执行失败: ${JSON.stringify(error)}`);
+    throw new InternalServerErrorException('AI 处理失败');
   }
 
   private static extractJsonBlock(raw: string): string {
@@ -584,133 +240,5 @@ export class AiService {
       .trim();
 
     return text;
-  }
-
-  private async ensureInlineDataBase64(
-    inlineData: GeminiInlineData,
-  ): Promise<{ base64: string; mimeType: string }> {
-    const fallbackMime = 'image/png';
-    if (inlineData.data && inlineData.data.trim()) {
-      return {
-        base64: AiService.stripBase64Prefix(inlineData.data),
-        mimeType: inlineData.mimeType?.trim() || fallbackMime,
-      };
-    }
-
-    if (inlineData.url) {
-      const downloaded = await this.downloadImageAsBase64(inlineData.url);
-      const mimeType =
-        downloaded.mimeType?.trim() ||
-        inlineData.mimeType?.trim() ||
-        fallbackMime;
-      return { base64: downloaded.base64, mimeType };
-    }
-
-    throw new InternalServerErrorException('图片数据缺失');
-  }
-
-  private async downloadImageAsBase64(
-    url: string,
-  ): Promise<{ base64: string; mimeType?: string }> {
-    try {
-      const response = await axios.get<ArrayBuffer>(url, {
-        responseType: 'arraybuffer',
-      });
-      const base64 = Buffer.from(response.data).toString('base64');
-      const mimeType = response.headers['content-type'];
-      return { base64, mimeType };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`下载图片失败: ${url} - ${message}`);
-      throw new InternalServerErrorException('图片下载失败');
-    }
-  }
-
-  private static stripBase64Prefix(data: string): string {
-    const trimmed = data.trim();
-    const commaIndex = trimmed.indexOf(',');
-    if (commaIndex !== -1) {
-      return trimmed.slice(commaIndex + 1);
-    }
-    return trimmed;
-  }
-
-  private static resolveExtension(mimeType: string): string {
-    const mapping: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/jpg': 'jpg',
-      'image/png': 'png',
-      'image/gif': 'gif',
-      'image/webp': 'webp',
-      'image/svg+xml': 'svg',
-    };
-    if (mapping[mimeType]) return mapping[mimeType];
-    const suffix = mimeType.split('/')[1] || 'png';
-    if (suffix.includes('jpeg')) return 'jpg';
-    return suffix;
-  }
-
-  private async saveBase64Image(
-    base64: string,
-    mimeType?: string,
-  ): Promise<{ path: string; url: string; filename: string }> {
-    const normalized = AiService.stripBase64Prefix(base64);
-    const buffer = Buffer.from(normalized, 'base64');
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const dateFolder = `${year}${month}${day}`;
-    const uploadDir = path.join('uploads', dateFolder);
-
-    if (!fs.existsSync(uploadDir)) {
-      await fsPromises.mkdir(uploadDir, { recursive: true });
-    }
-
-    const effectiveMime = mimeType?.trim() || 'image/png';
-    const extension = AiService.resolveExtension(effectiveMime);
-    const filename = `${uuidv4()}.${extension}`;
-    const filePath = path.join(uploadDir, filename);
-
-    await fsPromises.writeFile(filePath, buffer);
-
-    const baseUrl = this.configService.get<string>('app.baseUrl');
-    const relativePath = filePath.replace(/\\/g, '/');
-
-    return {
-      path: filePath,
-      url: `${baseUrl}/${relativePath}`,
-      filename,
-    };
-  }
-
-  private async enrichResponseWithImageUrls(
-    response: GeminiGenerateContentResponse,
-  ): Promise<void> {
-    const candidates = response.candidates || [];
-    for (const candidate of candidates) {
-      const parts = candidate.content?.parts;
-      if (!parts?.length) continue;
-
-      for (const part of parts) {
-        const inline = part.inlineData;
-        if (!inline) continue;
-
-        if (!inline.data || inline.url) {
-          if (inline.url) {
-            part.inlineData = { url: inline.url };
-          } else {
-            part.inlineData = inline;
-          }
-          continue;
-        }
-
-        const saved = await this.saveBase64Image(inline.data, inline.mimeType);
-        part.inlineData = {
-          url: saved.url,
-        };
-      }
-    }
   }
 }

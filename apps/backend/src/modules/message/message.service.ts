@@ -18,19 +18,26 @@ export class MessageService {
   async create(dto: CreateMessageDto): Promise<MessageDocument> {
     await this.sessionService.ensureExists(dto.sessionId);
 
-    if (!dto.content && (!dto.parts || dto.parts.length === 0)) {
-      throw new BadRequestException('必须提供 content 或 parts 之一');
+    const normalizedContent = MessageService.normalizeContent(dto.content);
+    const normalizedImages = MessageService.normalizeImages(dto.images);
+
+    if (!normalizedContent && normalizedImages.length === 0) {
+      throw new BadRequestException('消息内容不能为空');
     }
 
-    const createdAt = dto.createdAt ? new Date(dto.createdAt) : undefined;
+    const contentValue = normalizedContent ?? '';
 
-    const storedContent = dto.content ?? JSON.stringify(dto.parts || []);
+    const createdAt = dto.createdAt ? new Date(dto.createdAt) : undefined;
 
     const payload: Record<string, unknown> = {
       sessionId: new Types.ObjectId(dto.sessionId),
       role: dto.role,
-      content: storedContent,
+      content: contentValue,
     };
+
+    if (normalizedImages.length > 0) {
+      payload.images = normalizedImages;
+    }
 
     if (dto.model) {
       payload.model = dto.model;
@@ -45,7 +52,10 @@ export class MessageService {
     }
 
     const message = await this.messageModel.create(payload);
-    const lastMessageSummary = MessageService.deriveLastMessage(dto);
+    const lastMessageSummary = MessageService.deriveLastMessage(
+      contentValue,
+      normalizedImages,
+    );
 
     await this.sessionService.recordMessageActivity(
       dto.sessionId,
@@ -80,44 +90,36 @@ export class MessageService {
     return this.messageModel.findById(messageId).exec();
   }
 
-  private static deriveLastMessage(dto: CreateMessageDto): string | undefined {
-    if (dto.parts?.length) {
-      const texts = dto.parts
-        .map((part) => part.text?.trim())
-        .filter((text): text is string => !!text);
-      if (texts.length) {
-        return MessageService.truncatePreview(texts.join('\n'));
-      }
+  private static normalizeContent(content?: string): string | undefined {
+    if (typeof content !== 'string') {
+      return undefined;
+    }
+    const trimmed = content.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
 
-      if (dto.parts.some((part) => part.inlineData)) {
-        return '[多媒体消息]';
-      }
+  private static normalizeImages(images?: string[]): string[] {
+    if (!Array.isArray(images)) {
+      return [];
     }
 
-    if (dto.content?.trim()) {
-      const trimmed = dto.content.trim();
+    const sanitized = images
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item.length > 0);
 
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          const texts = parsed
-            .map((item) =>
-              typeof item?.text === 'string' ? item.text.trim() : '',
-            )
-            .filter((text) => text.length > 0);
-          if (texts.length) {
-            return MessageService.truncatePreview(texts.join('\n'));
-          }
-          if (parsed.some((item) => item?.inlineData)) {
-            return '[多媒体消息]';
-          }
-          return undefined;
-        }
-      } catch {
-        // treated as plain text below
-      }
+    return Array.from(new Set(sanitized));
+  }
 
-      return MessageService.truncatePreview(trimmed);
+  private static deriveLastMessage(
+    content: string,
+    images: string[],
+  ): string | undefined {
+    if (content.trim()) {
+      return MessageService.truncatePreview(content);
+    }
+
+    if (images.length) {
+      return '[多媒体消息]';
     }
 
     return undefined;
