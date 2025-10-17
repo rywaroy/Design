@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { UploadFile, UploadProps } from 'antd';
-import { App, Button, Empty, Image, Input, Select, Spin, Upload } from 'antd';
-import { PictureOutlined, SendOutlined } from '@ant-design/icons';
+import type { MenuProps, UploadFile, UploadProps } from 'antd';
+import { App, Button, Dropdown, Empty, Image, Input, Select, Spin, Upload } from 'antd';
+import { CheckOutlined, DownOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -42,6 +42,12 @@ export interface ChatConversationProps {
   onMessageCreate?: (message: ChatConversationMessage) => void;
   onError?: (error: Error) => void;
 }
+
+type ModelOption = {
+  value: string;
+  name: string;
+  model: string;
+};
 
 const DEFAULT_ASPECT_RATIO_OPTIONS = [
   { label: '正方形 1:1', value: '1:1' },
@@ -153,10 +159,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   const [sending, setSending] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId ?? null);
   const [internalMessages, setInternalMessages] = useState<ChatConversationMessage[]>(messages);
-  const [modelOptionsState, setModelOptionsState] = useState<
-    { label: string; value: string; description?: string }[]
-  >([]);
-  const [modelLoading, setModelLoading] = useState(false);
+  const [modelOptionsState, setModelOptionsState] = useState<ModelOption[]>([]);
   const [activeModel, setActiveModel] = useState<string>();
   const [activeAspectRatio, setActiveAspectRatio] = useState<string>(
     aspectRatioOptions?.[0]?.value ?? DEFAULT_ASPECT_RATIO_OPTIONS[0].value,
@@ -188,15 +191,23 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   useEffect(() => {
     let mounted = true;
     const fetchModels = async () => {
-      setModelLoading(true);
       try {
         const response = await listModels();
         const enabled = response.data.filter((item) => item.enabled);
-        const options = enabled.map((item) => ({
-          label: item.description ? `${item.name} · ${item.description}` : item.name,
-          value: item.name ?? item.model,
-          description: item.description,
-        }));
+        const options = enabled
+          .map((item): ModelOption | null => {
+            const modelValue = item.model ?? item.name;
+            if (!modelValue) {
+              return null;
+            }
+            const displayName = item.name ?? item.model ?? modelValue;
+            return {
+              value: modelValue,
+              name: displayName,
+              model: item.model ?? modelValue,
+            };
+          })
+          .filter((item): item is ModelOption => Boolean(item));
         if (!mounted) {
           return;
         }
@@ -211,10 +222,6 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
         if (mounted) {
           messageApi.error('获取模型列表失败');
           onError?.(error as Error);
-        }
-      } finally {
-        if (mounted) {
-          setModelLoading(false);
         }
       }
     };
@@ -232,6 +239,66 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
     }
     return aspectRatioOptions;
   }, [aspectRatioOptions]);
+
+  const currentModel = useMemo(
+    () => modelOptionsState.find((option) => option.value === activeModel),
+    [activeModel, modelOptionsState],
+  );
+
+  const modelMenuItems = useMemo<MenuProps['items']>(() => {
+    if (modelOptionsState.length === 0) {
+      return [
+        {
+          key: 'empty',
+          disabled: true,
+          label: (
+            <div className="flex flex-col gap-1 px-4 py-3">
+              <span className="text-sm font-medium text-gray-500">暂无可用模型</span>
+              <span className="text-xs text-gray-400">请稍后再试</span>
+            </div>
+          ),
+        },
+      ];
+    }
+
+    return modelOptionsState.map((option) => ({
+      key: option.value,
+      label: (
+        <div className="flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-gray-100">
+          <div className="flex flex-col text-left">
+            <span className="text-sm font-semibold text-gray-900">{option.name}</span>
+            <span className="text-xs text-gray-500">{option.model}</span>
+          </div>
+          {activeModel === option.value ? (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-900">
+              <CheckOutlined className="text-[10px] !text-white" />
+            </span>
+          ) : null}
+        </div>
+      ),
+    }));
+  }, [activeModel, modelOptionsState]);
+
+  const handleModelMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
+    ({ key }) => {
+      if (key === 'empty') {
+        return;
+      }
+      setActiveModel(key as string);
+    },
+    [],
+  );
+
+  const modelMenu = useMemo<MenuProps>(
+    () => ({
+      items: modelMenuItems,
+      onClick: handleModelMenuClick,
+      selectable: false,
+      className:
+        '!p-2 min-w-[280px] !rounded-xl !bg-white !shadow-[0_16px_32px_-20px_rgba(15,23,42,0.25)] !border !border-gray-100',
+    }),
+    [handleModelMenuClick, modelMenuItems],
+  );
 
   useEffect(() => {
     if (!activeAspectRatio && availableAspectRatioOptions.length > 0) {
@@ -542,21 +609,24 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
 
   return (
     <div className="flex h-full flex-col rounded-3xl border border-gray-200 bg-[#f9fafb]">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <div>
-          <div className="text-sm font-medium text-gray-500">模型设置</div>
-          <div className="text-base font-semibold text-gray-900">选择模型与画面比例</div>
-        </div>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
+        <Dropdown
+          trigger={['click']}
+          placement="bottomLeft"
+          overlayClassName="!p-0"
+          menu={modelMenu}
+        >
+          <div
+            className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-3 py-2 text-base font-medium text-gray-900 transition-colors hover:bg-gray-100"
+            onClick={(event) => {
+              event.preventDefault();
+            }}
+          >
+            {currentModel?.name ?? '选择模型'}
+            <DownOutlined className="text-xs text-gray-500" />
+          </div>
+        </Dropdown>
         <div className="flex items-center gap-3">
-          <Select
-            className="w-56"
-            placeholder="选择模型"
-            options={modelOptionsState}
-            value={activeModel}
-            onChange={(value) => setActiveModel(value)}
-            loading={modelLoading}
-            notFoundContent={modelLoading ? <Spin size="small" /> : '暂无可用模型'}
-          />
           <Select
             className="w-40"
             placeholder="图片比例"
