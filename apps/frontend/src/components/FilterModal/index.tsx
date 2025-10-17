@@ -137,26 +137,6 @@ const FilterModal: FC<FilterModalProps> = ({
     }));
   }, [fields]);
 
-  useEffect(() => {
-    if (!open || typeof document === 'undefined' || typeof window === 'undefined') {
-      return;
-    }
-    const body = document.body;
-    const originalOverflow = body.style.overflow;
-    const originalPaddingRight = body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-    body.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-
-    return () => {
-      body.style.overflow = originalOverflow;
-      body.style.paddingRight = originalPaddingRight;
-    };
-  }, [open]);
-
   if (!fields.length) {
     return null;
   }
@@ -266,7 +246,6 @@ const FilterModal: FC<FilterModalProps> = ({
           background: 'transparent',
           padding: 0,
           boxShadow: 'none',
-          maxWidth: 1152,
           width: '100%',
         },
         body: {
@@ -275,7 +254,7 @@ const FilterModal: FC<FilterModalProps> = ({
       }}
       rootClassName="filter-modal-root"
     >
-      <div className="relative flex h-[82vh] w-full max-w-6xl overflow-hidden rounded-[32px] bg-[#1F2430] text-white shadow-2xl ring-1 ring-black/40">
+      <div className="relative flex h-[82vh] w-full overflow-hidden rounded-[32px] bg-[#1F2430] text-white shadow-2xl ring-1 ring-black/40">
         <button
           type="button"
           aria-label="关闭筛选"

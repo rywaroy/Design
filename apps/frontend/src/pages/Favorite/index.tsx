@@ -515,6 +515,11 @@ const FavoritePage: React.FC = () => {
       : 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2';
   }, [platform]);
 
+  const screenGridClassName = useMemo(() => {
+    const baseClass = 'grid grid-cols-1 gap-6 sm:grid-cols-2';
+    return platform === 'ios' ? `${baseClass} lg:grid-cols-5` : `${baseClass} lg:grid-cols-6`;
+  }, [platform]);
+
   const renderProjectSection = () => {
     if (project.items.length === 0 && project.loading) {
       return (
@@ -566,12 +571,16 @@ const FavoritePage: React.FC = () => {
 
     return (
       <>
-        <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
+        <section className={screenGridClassName}>
           {screen.items.map((item) => {
             const coverUrl = resolveScreenCoverUrl(item);
             const isWeb = item.platform === 'web';
             const variant: 'ios' | 'web' = isWeb ? 'web' : 'ios';
-            const cardClassName = isWeb ? 'lg:col-span-3' : 'lg:col-span-2';
+            const cardClassName = isWeb
+              ? 'lg:col-span-3'
+              : platform === 'ios'
+                ? 'lg:col-span-1'
+                : 'lg:col-span-2';
             const previewEntryIndex = screenPreviewData.indexMap.get(item.screenId);
             const previewScreens = screenPreviewData.screens;
             const previewConfig =

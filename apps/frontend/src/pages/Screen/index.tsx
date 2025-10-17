@@ -394,8 +394,9 @@ const ScreenListPage: FC = () => {
   };
 
   const gridClassName = useMemo(() => {
-    return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6';
-  }, []);
+    const baseClass = 'grid grid-cols-1 gap-6 sm:grid-cols-2';
+    return platform === 'ios' ? `${baseClass} lg:grid-cols-5` : `${baseClass} lg:grid-cols-6`;
+  }, [platform]);
 
   const previewData = useMemo(() => {
     const screensForPreview: ScreenPreviewItem[] = [];
@@ -471,7 +472,11 @@ const ScreenListPage: FC = () => {
                 const coverUrl = resolveScreenCoverUrl(screen);
                 const isWeb = screen.platform === 'web' || platform === 'web';
                 const variant: 'ios' | 'web' = isWeb ? 'web' : 'ios';
-                const cardClassName = isWeb ? 'lg:col-span-3' : 'lg:col-span-2';
+                const cardClassName = isWeb
+                  ? 'lg:col-span-3'
+                  : platform === 'ios'
+                    ? 'lg:col-span-1'
+                    : 'lg:col-span-2';
                 const previewEntryIndex = previewData.indexMap.get(screen.screenId);
                 const previewConfig =
                   previewData.screens.length > 0

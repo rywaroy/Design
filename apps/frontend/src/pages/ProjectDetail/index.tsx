@@ -448,15 +448,21 @@ const ProjectDetailPage: FC = () => {
         ) : isScreenListEmpty ? (
           <Empty description="暂无页面" className="py-16" />
         ) : (
-          <>
-            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
-              {screenState.items.map((screen) => {
-                const coverUrl = resolveScreenCoverUrl(screen);
-                const isWeb = screen.platform === 'web';
-                const variant: 'ios' | 'web' = isWeb ? 'web' : 'ios';
-                const cardClassName = isWeb
-                  ? 'lg:col-span-3'
-                  : 'lg:col-span-2';
+            <>
+              <div
+                className={`mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 ${
+                  project?.platform === 'ios' ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
+                }`}
+              >
+                {screenState.items.map((screen) => {
+                  const coverUrl = resolveScreenCoverUrl(screen);
+                  const isWeb = screen.platform === 'web';
+                  const variant: 'ios' | 'web' = isWeb ? 'web' : 'ios';
+                  const cardClassName = isWeb
+                    ? 'lg:col-span-3'
+                    : project?.platform === 'ios'
+                      ? 'lg:col-span-1'
+                      : 'lg:col-span-2';
                 const previewEntryIndex = previewData.indexMap.get(screen.screenId);
                 const previewConfig =
                   typeof previewEntryIndex === 'number'

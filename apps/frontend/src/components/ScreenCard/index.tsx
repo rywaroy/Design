@@ -1,7 +1,7 @@
 import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Skeleton } from 'antd';
-import { HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, HeartFilled, HeartOutlined, ReloadOutlined } from '@ant-design/icons';
 import { appendImageResizeParam } from '../../lib/asset';
 import ImagePreviewModal, { type ScreenPreviewItem } from '../ImagePreviewModal';
 
@@ -35,6 +35,7 @@ export interface ScreenCardProps {
   onToggleFavorite?: (next: boolean) => void;
   favoritePending?: boolean;
   isRecommended?: boolean;
+  selected?: boolean;
 }
 
 const variantClassMap: Record<ScreenCardVariant, { aspect: string; radius: string }> = {
@@ -60,6 +61,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
   onToggleFavorite,
   favoritePending = false,
   isRecommended = false,
+  selected: selectedProp = false,
 }) => {
   const variantWidth = variant === 'ios' ? 400 : 600;
   const [coverLoaded, setCoverLoaded] = useState(false);
@@ -73,6 +75,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
   const coverImgRef = useRef<HTMLImageElement | null>(null);
   const favoriteAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFavorite = isFavoriteProp ?? false;
+  const selected = selectedProp;
   const adjustedCoverUrl = useMemo(() => {
     if (!coverUrl) {
       return null;
@@ -213,20 +216,31 @@ const ScreenCard: FC<ScreenCardProps> = ({
   const finalActions = actions;
   const hasActions = finalActions.length > 0;
 
+  const selectedBorderClass = selected
+    ? 'border-[#2563EB]'
+    : isRecommended
+      ? 'border-yellow-400'
+      : 'border-transparent';
+
   return (
     <div
       className={combineClassName(
-        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius} ${clickable ? 'cursor-pointer' : ''} border-2 border-transparent ${
-          isRecommended ? 'border-yellow-400' : ''
-        }`,
+        `group relative w-full overflow-hidden bg-gray-100 ${variantConfig.aspect} ${variantConfig.radius} ${
+          clickable ? 'cursor-pointer' : ''
+        } border-2 ${selectedBorderClass}`,
         className,
       )}
-      style={{ maxWidth: variantWidth }}
+      style={{ maxWidth: variantWidth, 'transition': 'all 0.3s ease-out' }}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       onClick={handleCardClick}
       onKeyDown={handleKeyDown}
     >
+      {selected ? (
+        <span className="pointer-events-none absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-lg text-base">
+          <CheckOutlined />
+        </span>
+      ) : null}
       <button
         type="button"
         aria-label={isFavorite ? '取消收藏页面' : '收藏页面'}
@@ -241,7 +255,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
       >
         {isFavorite ? <HeartFilled /> : <HeartOutlined />}
       </button>
-      {isRecommended ? (
+      {isRecommended && !selected ? (
         <span className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs font-semibold text-yellow-900 shadow-md opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           AI 推荐
         </span>
