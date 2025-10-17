@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Dropdown, Empty, Input, MenuProps, Modal, Spin, Typography } from 'antd';
-import { MoreOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { EllipsisOutlined, PlusCircleOutlined, PushpinOutlined } from '@ant-design/icons';
 import ChatConversation, {
   type ChatConversationMessage,
 } from '../../components/ChatConversation';
@@ -458,9 +458,6 @@ const ChatPage: React.FC = () => {
             <Title level={4} className="!m-0 !text-base text-gray-900">
               历史记录
             </Title>
-            <Text className="mt-1 block text-xs text-gray-500">
-              管理你的生图对话
-            </Text>
           </div>
 
           <div
@@ -471,7 +468,7 @@ const ChatPage: React.FC = () => {
               type="primary"
               icon={<PlusCircleOutlined />}
               block
-              className="mb-4 rounded-xl bg-[#111827]"
+              className="!mb-4 rounded-xl"
               onClick={() => void handleNewConversation()}
             >
               新建对话
@@ -534,14 +531,16 @@ const ChatPage: React.FC = () => {
                     }
                   };
                   const baseClasses =
-                    'group relative flex items-center justify-between rounded-2xl px-4 py-3 transition-colors';
+                    'group relative flex items-center justify-between rounded-sm pl-4 pr-2 py-1 transition-colors cursor-pointer';
                   const activeClasses = active
-                    ? 'bg-white text-gray-900 border border-[#111827]'
-                    : 'bg-[#f2f3f5] text-gray-900 hover:bg-[#e4e6eb]';
+                    ? 'bg-[#e4e6eb] text-gray-900'
+                    : 'text-gray-900 hover:bg-[#e4e6eb]';
+                  const iconWrapperClasses = session.pinned
+                    ? 'opacity-100'
+                    : 'opacity-0 group-hover:opacity-100';
                   return (
-                    <button
+                    <div
                       key={session._id}
-                      type="button"
                       onClick={() => handleSelectSession(session._id)}
                       className={`${baseClasses} ${activeClasses}`}
                     >
@@ -555,16 +554,27 @@ const ChatPage: React.FC = () => {
                         trigger={['click']}
                         menu={{ items: menuItems, onClick: handleMenuClick }}
                       >
-                        <Button
-                          type="text"
-                          icon={<MoreOutlined />}
-                          className="!m-0 ml-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-transparent"
+                        <div
+                          className={`relative flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-opacity duration-150 ${iconWrapperClasses}`}
                           onClick={(event) => {
                             event.stopPropagation();
                           }}
-                        />
+                        >
+                          {session.pinned ? (
+                            <>
+                              <span className="pointer-events-none transition-opacity duration-150 group-hover:opacity-0">
+                                <PushpinOutlined />
+                              </span>
+                              <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                <EllipsisOutlined />
+                              </span>
+                            </>
+                          ) : (
+                            <EllipsisOutlined className="pointer-events-none" />
+                          )}
+                        </div>
                       </Dropdown>
-                    </button>
+                    </div>
                   );
                 })}
                 {sessionLoading && (
