@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MenuProps, UploadFile, UploadProps } from 'antd';
-import { App, Button, Dropdown, Empty, Image, Input, Select, Spin, Upload } from 'antd';
-import { CheckOutlined, DownOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons';
+import { App, Button, Dropdown, Empty, Image, Input, Spin, Upload } from 'antd';
+import {
+  CheckOutlined,
+  CloseOutlined,
+  DownOutlined,
+  PauseOutlined,
+  PlusOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -50,9 +57,16 @@ type ModelOption = {
 };
 
 const DEFAULT_ASPECT_RATIO_OPTIONS = [
-  { label: '正方形 1:1', value: '1:1' },
-  { label: '横向 16:9', value: '16:9' },
-  { label: '纵向 9:16', value: '9:16' },
+  { label: '1:1', value: '1:1' },
+  { label: '2:3', value: '2:3' },
+  { label: '3:2', value: '3:2' },
+  { label: '3:4', value: '3:4' },
+  { label: '4:3', value: '4:3' },
+  { label: '4:5', value: '4:5' },
+  { label: '5:4', value: '5:4' },
+  { label: '9:16', value: '9:16' },
+  { label: '16:9', value: '16:9' },
+  { label: '21:9', value: '21:9' },
 ];
 
 const DEFAULT_PLACEHOLDER = '输入描述，按 Enter 发送，Shift + Enter 换行';
@@ -245,6 +259,17 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
     [activeModel, modelOptionsState],
   );
 
+  const aspectRatioMenuItems = useMemo<MenuProps['items']>(() => {
+    return availableAspectRatioOptions.map((option) => {
+      const isActive = activeAspectRatio === option.value;
+      return {
+        key: option.value,
+        // active: true,
+        label: option.label,
+      };
+    });
+  }, [activeAspectRatio, availableAspectRatioOptions]);
+
   const modelMenuItems = useMemo<MenuProps['items']>(() => {
     if (modelOptionsState.length === 0) {
       return [
@@ -264,7 +289,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
     return modelOptionsState.map((option) => ({
       key: option.value,
       label: (
-        <div className="flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-gray-100">
+        <div className="flex items-center justify-between rounded-lg transition-colors hover:bg-gray-100">
           <div className="flex flex-col text-left">
             <span className="text-sm font-semibold text-gray-900">{option.name}</span>
             <span className="text-xs text-gray-500">{option.model}</span>
@@ -289,6 +314,16 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
     [],
   );
 
+  const handleAspectRatioMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
+    ({ key }) => {
+      if (key === 'empty') {
+        return;
+      }
+      setActiveAspectRatio(key as string);
+    },
+    [],
+  );
+
   const modelMenu = useMemo<MenuProps>(
     () => ({
       items: modelMenuItems,
@@ -298,6 +333,15 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
         '!p-2 min-w-[280px] !rounded-xl !bg-white !shadow-[0_16px_32px_-20px_rgba(15,23,42,0.25)] !border !border-gray-100',
     }),
     [handleModelMenuClick, modelMenuItems],
+  );
+
+  const aspectRatioMenu = useMemo<MenuProps>(
+    () => ({
+      items: aspectRatioMenuItems,
+      onClick: handleAspectRatioMenuClick,
+      selectable: false,
+    }),
+    [aspectRatioMenuItems, handleAspectRatioMenuClick],
   );
 
   useEffect(() => {
@@ -610,30 +654,23 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   return (
     <div className="flex h-full flex-col rounded-3xl border border-gray-200 bg-[#f9fafb]">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
-        <Dropdown
-          trigger={['click']}
-          placement="bottomLeft"
-          overlayClassName="!p-0"
-          menu={modelMenu}
-        >
-          <div
-            className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-3 py-2 text-base font-medium text-gray-900 transition-colors hover:bg-gray-100"
-            onClick={(event) => {
-              event.preventDefault();
-            }}
+        <div className='flex items-center'>
+          <Dropdown
+            trigger={['click']}
+            placement="bottomLeft"
+            overlayClassName="!p-0"
+            menu={modelMenu}
           >
-            {currentModel?.name ?? '选择模型'}
-            <DownOutlined className="text-xs text-gray-500" />
-          </div>
-        </Dropdown>
-        <div className="flex items-center gap-3">
-          <Select
-            className="w-40"
-            placeholder="图片比例"
-            options={availableAspectRatioOptions}
-            value={activeAspectRatio}
-            onChange={(value) => setActiveAspectRatio(value)}
-          />
+            <div
+              className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-3 py-1 text-base font-medium text-gray-900 transition-colors hover:bg-gray-100"
+              onClick={(event) => {
+                event.preventDefault();
+              }}
+            >
+              {currentModel?.name ?? '选择模型'}
+              <DownOutlined className="text-xs text-gray-500" />
+            </div>
+          </Dropdown>
         </div>
       </div>
 
@@ -667,61 +704,140 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
         </div>
       </div>
 
-      <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-          <Input.TextArea
-            autoSize={{ minRows: 2, maxRows: 6 }}
-            value={inputValue}
-            onChange={(event) => setInputValue(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            bordered={false}
-            className="text-base text-gray-900"
-          />
-          <div className="mt-3 flex items-center justify-between">
-            <Upload
-              listType="picture-card"
-              fileList={fileList}
-              beforeUpload={handleBeforeUpload}
-              onChange={handleUploadChange}
-              onRemove={handleRemove}
-              customRequest={handleUpload}
-              multiple
-              accept="image/*"
-              itemRender={(originNode) => (
-                <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                  {originNode}
-                </div>
-              )}
+      <div className="px-6 py-4">
+        <div className="flex flex-col gap-3">
+          {fileList.length > 0 && (
+            <Image.PreviewGroup
+              items={fileList
+                .map((file) => {
+                  const response = file.response as UploadResultItem | undefined;
+                  const url = file.thumbUrl || file.url || response?.url;
+                  return url ? { src: url } : null;
+                })
+                .filter((item): item is { src: string } => Boolean(item))}
             >
-              {fileList.length >= maxImageCount ? null : (
-                <div className="flex h-[96px] w-[96px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-gray-300 bg-gray-50 text-gray-500">
-                  <PictureOutlined className="text-xl" />
-                  <span className="text-xs">上传图片</span>
-                </div>
-              )}
-            </Upload>
-
-            <div className="flex items-center gap-3">
-              {sending && (
-                <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gray-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-gray-500" />
-                  </span>
-                  模型生成中...
-                </div>
-              )}
-              <Button
-                type="primary"
-                icon={<SendOutlined />}
-                size="large"
-                onClick={() => void handleSubmit()}
-                disabled={!canSubmit || submitting || !activeModel}
-                loading={submitting}
+              <div className="flex flex-wrap gap-3">
+                {fileList.map((file) => {
+                  const response = file.response as UploadResultItem | undefined;
+                  const url = file.thumbUrl || file.url || response?.url;
+                  return (
+                    <div
+                      key={file.uid}
+                      className="group relative h-20 w-20 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+                    >
+                      {url ? (
+                        <Image
+                          src={url}
+                          alt={file.name ?? '已上传图片'}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs text-gray-500">
+                          {file.name ?? '图片'}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="absolute right-1.5 top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white transition group-hover:flex"
+                        onClick={() => handleRemove(file)}
+                      >
+                        <CloseOutlined className="text-xs" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Image.PreviewGroup>
+          )}
+          <div className="flex flex-col gap-3 rounded-[22px] border border-gray-200 bg-white px-6 py-4 shadow-sm">
+            <Input.TextArea
+              autoSize={{ minRows: 1, maxRows: 6 }}
+              value={inputValue}
+              onChange={(event) => setInputValue(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              bordered={false}
+              className="!bg-transparent !px-0 !py-1 !text-base !text-gray-900 !leading-6 !shadow-none"
+            />
+            <div className="flex items-center gap-3 pt-1">
+              <Dropdown
+                trigger={['click']}
+                placement="topLeft"
+                menu={{
+                  items: [
+                    {
+                      key: 'upload',
+                      label: (
+                        <Upload
+                          showUploadList={false}
+                          fileList={fileList}
+                          beforeUpload={handleBeforeUpload}
+                          onChange={handleUploadChange}
+                          onRemove={handleRemove}
+                          customRequest={handleUpload}
+                          multiple
+                          accept="image/*"
+                        >
+                          <div className="flex items-center justify-between rounded-lg text-sm text-gray-700 transition-colors">
+                            上传图片
+                          </div>
+                        </Upload>
+                      ),
+                    },
+                    {
+                      key: 'favorites',
+                      label: (
+                        <div className="rounded-lg text-sm text-gray-400 transition-colors">
+                          选择收藏（敬请期待）
+                        </div>
+                      ),
+                      disabled: true,
+                    },
+                  ],
+                  className:
+                    '!border !border-gray-100 !bg-white !p-2 !shadow-[0_20px_35px_-25px_rgba(15,23,42,0.35)] !rounded-2xl',
+                }}
               >
-                发送
-              </Button>
+                <button
+                  type="button"
+                  aria-label="打开上传菜单"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:border-gray-300 hover:bg-gray-100 cursor-pointer"
+                >
+                  <PlusOutlined />
+                </button>
+              </Dropdown>
+              <Dropdown
+                trigger={['click']}
+                placement="topLeft"
+                overlayClassName="!p-0"
+                menu={aspectRatioMenu}
+              >
+                <div
+                  className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition hover:border-gray-300 hover:bg-gray-100"
+                  onClick={(event) => {
+                    event.preventDefault();
+                  }}
+                >
+                  <span className="text-gray-700">
+                    比例：
+                    {availableAspectRatioOptions.find((option) => option.value === activeAspectRatio)?.label ?? '--'}
+                  </span>
+                  <DownOutlined className="text-xs text-gray-500" />
+                </div>
+              </Dropdown>
+              <div
+                className={`ml-auto flex w-10 h-10 items-center rounded-full justify-center border transition cursor-pointer ${
+                  sending
+                    ? '!border-black !bg-black !text-white'
+                    : '!border-gray-200 !bg-white !text-gray-900 hover:!border-gray-300 hover:!bg-gray-100'
+                } ${
+                  !canSubmit || submitting || !activeModel
+                    ? '!cursor-not-allowed !opacity-60 hover:!bg-white hover:!text-gray-900'
+                    : ''
+                }`}
+                onClick={() => void handleSubmit()}>
+                  {sending ? <PauseOutlined /> : <SendOutlined />}
+              </div>
             </div>
           </div>
         </div>
