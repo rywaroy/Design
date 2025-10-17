@@ -15,6 +15,8 @@
     "@design/shared-types": "workspace:*",
     "antd": "^5.19.1",
     "axios": "^1.12.2",
+    "react-markdown": "^9.0.0",
+    "remark-gfm": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.26.2"

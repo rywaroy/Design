@@ -6,7 +6,6 @@ import {
   IsMongoId,
   IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
 } from 'class-validator';
 
@@ -34,10 +33,6 @@ export class AiChatRequestDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(50)
-  @IsUrl(
-    { require_protocol: true },
-    { each: true, message: 'images 中的每一项都需要是合法的 URL' },
-  )
   @Type(() => String)
   images?: string[];
 

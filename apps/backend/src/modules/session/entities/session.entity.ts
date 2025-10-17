@@ -27,6 +27,9 @@ export class Session {
 
   @Prop({ type: Date })
   lastMessageAt?: Date;
+
+  @Prop({ type: Boolean, default: false })
+  pinned?: boolean;
 }
 
 export type SessionDocument = HydratedDocument<Session>;

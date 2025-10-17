@@ -12,6 +12,7 @@ import DefaultLayout from './layout/Default';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProjectListProvider } from './contexts/ProjectListContext';
 import { FavoriteProvider } from './contexts/FavoriteContext';
+import ChatPage from './pages/Chat';
 
 const Root = () => (
   <ConfigProvider
@@ -44,6 +45,7 @@ const Root = () => (
                   <Route path="/screen" element={<ScreenListPage />} />
                   <Route path="/project/:projectId" element={<ProjectDetailPage />} />
                   <Route path="/favorite" element={<FavoritePage />} />
+                  <Route path="/chat" element={<ChatPage />} />
                 </Route>
               </Routes>
             </BrowserRouter>

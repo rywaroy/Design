@@ -9,6 +9,7 @@ import type { AuthUser } from '../../contexts/AuthContext';
 const HEADER_MENU_CONFIG = [
   { key: 'project', label: '项目', path: '/' },
   { key: 'screen', label: '屏幕', path: '/screen' },
+  { key: 'chat', label: 'AI 对话', path: '/chat' },
 ] as const;
 
 type HeaderMenuKey = (typeof HEADER_MENU_CONFIG)[number]['key'];

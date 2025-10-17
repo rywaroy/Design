@@ -1,5 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -16,6 +17,11 @@ export class CreateSessionDto {
   @IsString()
   @ApiPropertyOptional({ description: '会话标题，未提供时默认使用“新对话”' })
   title?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiPropertyOptional({ description: '是否固定在顶部，默认 false' })
+  pinned?: boolean;
 }
 
 export class UpdateSessionDto extends PartialType(CreateSessionDto) {
@@ -32,6 +38,11 @@ export class UpdateSessionDto extends PartialType(CreateSessionDto) {
   @IsOptional()
   @ApiPropertyOptional({ description: '更新时间戳，用于外部同步' })
   lastMessageAt?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiPropertyOptional({ description: '是否固定在顶部' })
+  pinned?: boolean;
 }
 
 export class ListSessionQueryDto {

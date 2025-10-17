@@ -30,6 +30,7 @@ export class SessionService {
       userId,
       title: dto.title?.trim() || '新对话',
       status: SessionStatus.ACTIVE,
+      pinned: dto.pinned ?? false,
     };
 
     return this.sessionModel.create(payload);
@@ -71,7 +72,7 @@ export class SessionService {
 
     return this.sessionModel
       .find(filter)
-      .sort({ updatedAt: -1 })
+      .sort({ pinned: -1, updatedAt: -1 })
       .skip(skip)
       .limit(size)
       .exec();
@@ -103,6 +104,10 @@ export class SessionService {
 
     if (dto.lastMessageAt) {
       update.lastMessageAt = new Date(dto.lastMessageAt);
+    }
+
+    if (dto.pinned !== undefined) {
+      update.pinned = dto.pinned;
     }
 
     const updated = await this.sessionModel
