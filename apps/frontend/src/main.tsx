@@ -1,6 +1,9 @@
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import 'antd/dist/reset.css';
 import './index.css';
 import LoginPage from './pages/Login';
@@ -14,8 +17,11 @@ import { ProjectListProvider } from './contexts/ProjectListContext';
 import { FavoriteProvider } from './contexts/FavoriteContext';
 import ChatPage from './pages/Chat';
 
+dayjs.locale('zh-cn');
+
 const Root = () => (
   <ConfigProvider
+    locale={zhCN}
     theme={{
       token: {
         colorPrimary: '#111827',

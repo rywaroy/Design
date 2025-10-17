@@ -1,5 +1,15 @@
 import React from 'react';
-import { Image, Spin } from 'antd';
+import { Image, Space, Spin } from 'antd';
+import {
+  DownloadOutlined,
+  LeftOutlined,
+  RightOutlined,
+  RotateLeftOutlined,
+  RotateRightOutlined,
+  SwapOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
+} from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatConversationMessage } from '../types';
@@ -18,6 +28,25 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     : 'bg-white text-gray-900 border border-gray-200';
   const bubbleAlign = isUser ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm';
   const metadata = formatDatetime(message.createdAt);
+
+  const onDownload = (current: number) => {
+    const url = message.images?.[current];
+    if (!url) return;
+    const suffix = url.includes('.') ? url.slice(url.lastIndexOf('.')) : '';
+    const filename = `${Date.now()}${suffix}`;
+    fetch(url)
+      .then((response) => response.blob())
+      .then((blob) => {
+        const blobUrl = URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+        link.remove();
+      });
+  };
 
   return (
     <div className={`flex flex-col gap-2 ${containerAlign}`}>
@@ -61,7 +90,44 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         </div>
       )}
       {message.images && message.images.length > 0 && (
-        <Image.PreviewGroup items={message.images.map((url) => ({ src: url }))}>
+        <Image.PreviewGroup
+          items={message.images.map((url) => ({ src: url }))}
+          preview={{
+            toolbarRender: (
+              _,
+              {
+                transform: { scale },
+                actions: {
+                  onActive,
+                  onFlipY,
+                  onFlipX,
+                  onRotateLeft,
+                  onRotateRight,
+                  onZoomOut,
+                  onZoomIn,
+                },
+                current,
+              },
+            ) => {
+              const total = message.images?.length ?? 0;
+              
+
+              return (
+                <Space size={12} className="message-item-image-toolbar-wrapper">
+                  <LeftOutlined disabled={current === 0} onClick={() => onActive?.(-1)} />
+                  <RightOutlined disabled={current === total - 1} onClick={() => onActive?.(1)} />
+                  <SwapOutlined rotate={90} onClick={onFlipY} />
+                  <SwapOutlined onClick={onFlipX} />
+                  <RotateLeftOutlined onClick={onRotateLeft} />
+                  <RotateRightOutlined onClick={onRotateRight} />
+                  <ZoomOutOutlined disabled={scale === 1} onClick={onZoomOut} />
+                  <ZoomInOutlined disabled={scale === 50} onClick={onZoomIn} />
+                  <DownloadOutlined onClick={() => onDownload(current)} />
+                </Space>
+              );
+            },
+          }}
+        >
           <div
             className={`base-message-images flex flex-wrap gap-3 items-start ${isUser ? 'self-end' : 'self-start'}`}
           >

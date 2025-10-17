@@ -54,17 +54,21 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </Title>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6" ref={containerRef}>
+      {/* Fixed action area (non-scrolling) */}
+      <div className="px-6 pb-3">
         <Button
           type="primary"
           icon={<PlusCircleOutlined />}
           block
-          className="!mb-4 rounded-xl"
+          className="rounded-xl"
           onClick={() => onNewSession?.()}
         >
           新建对话
         </Button>
+      </div>
 
+      {/* Scrollable session list */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6" ref={containerRef}>
         {sessions.length === 0 && !loading ? (
           <div className="mt-12">
             <Empty description="暂无历史记录" />

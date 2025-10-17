@@ -16,8 +16,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { App as AntApp } from 'antd';
 import HistoryPanel, { type HistoryAction } from './components/HistoryPanel';
 
-const SESSION_PAGE_SIZE = 20;
-const MESSAGE_PAGE_SIZE = 50;
+const SESSION_PAGE_SIZE = 30;
+const MESSAGE_PAGE_SIZE = 30;
 
 const deriveSessionTitle = (content?: string, fallbackTitle = '新对话') => {
   if (!content) {

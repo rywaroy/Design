@@ -10,5 +10,8 @@
     "dev": "pnpm -r --parallel --filter ./apps/** run dev",
     "dev:f": "pnpm --filter design-frontend dev",
     "dev:b": "pnpm --filter design-backend dev"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.18"
   }
 }

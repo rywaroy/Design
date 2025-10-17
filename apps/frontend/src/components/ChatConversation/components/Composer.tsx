@@ -86,6 +86,7 @@ const Composer: React.FC<ComposerProps> = ({
                         className="object-cover"
                         height={80}
                         width={80}
+                        
                       />
                     </div>
                     <div
