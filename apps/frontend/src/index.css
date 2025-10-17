@@ -89,6 +89,13 @@ a {
   text-underline-offset: 2px;
 }
 
+/* Ensure AntD Image fills square tile and covers without white gaps */
+.cover-image .ant-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 
 ::webkit-scrollbar-thumb {
   border-radius: 10px;
@@ -106,4 +113,14 @@ a {
   background-color: #4B5563;
   border: 2px solid transparent;
   background-clip: padding-box;
+}
+
+.base-message-images img {
+  max-width: 240px;
+  max-height: 300px;
+  width: auto !important;
+}
+
+.base-message-images .ant-image {
+  display: block;
 }

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Dropdown, Empty, Input, MenuProps, Modal, Spin, Typography } from 'antd';
-import { EllipsisOutlined, PlusCircleOutlined, PushpinOutlined } from '@ant-design/icons';
+import { Input, Modal, Spin } from 'antd';
 import ChatConversation, {
   type ChatConversationMessage,
 } from '../../components/ChatConversation';
@@ -15,8 +14,7 @@ import {
 } from '../../services/chat';
 import { useAuth } from '../../contexts/AuthContext';
 import { App as AntApp } from 'antd';
-
-const { Title, Text } = Typography;
+import HistoryPanel, { type HistoryAction } from './components/HistoryPanel';
 
 const SESSION_PAGE_SIZE = 20;
 const MESSAGE_PAGE_SIZE = 50;
@@ -84,9 +82,6 @@ const sortSessionList = (sessions: SessionItem[]): SessionItem[] => {
   });
 };
 
-interface SessionAction {
-  type: 'delete' | 'pin' | 'unpin' | 'rename';
-}
 
 const ChatPage: React.FC = () => {
   const { message } = AntApp.useApp();
@@ -110,7 +105,6 @@ const ChatPage: React.FC = () => {
   const [renameInputValue, setRenameInputValue] = useState('');
   const [renaming, setRenaming] = useState(false);
 
-  const historyContainerRef = useRef<HTMLDivElement>(null);
   const sessionLoadingRef = useRef(false);
   const lastLoadedSessionRef = useRef<string | null>(null);
   const skipNextFetchRef = useRef(false);
@@ -245,22 +239,10 @@ const ChatPage: React.FC = () => {
     void fetchSessions(1, false);
   }, [fetchSessions, user]);
 
-  useEffect(() => {
-    if (!historyContainerRef.current || !hasMoreSessions) {
-      return;
-    }
-
-    const container = historyContainerRef.current;
-
-    const handleScroll = () => {
-      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 80) {
-        const nextPage = sessionPage + 1;
-        void fetchSessions(nextPage, true);
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+  const handleLoadMoreSessions = useCallback(() => {
+    if (!hasMoreSessions || sessionLoadingRef.current) return;
+    const nextPage = sessionPage + 1;
+    void fetchSessions(nextPage, true);
   }, [fetchSessions, hasMoreSessions, sessionPage]);
 
   const updateSessionQuery = useCallback(
@@ -442,6 +424,48 @@ const ChatPage: React.FC = () => {
     [message],
   );
 
+  const handleHistoryMenuAction = useCallback(
+    (session: SessionItem, action: HistoryAction) => {
+      if (action === 'rename') {
+        setRenameTargetId(session._id);
+        setRenameInputValue(session.title ?? '');
+        setRenameModalOpen(true);
+        return;
+      }
+      if (action === 'delete') {
+        Modal.confirm({
+          title: '删除对话',
+          content: '确认删除该对话及其所有消息？操作无法撤销。',
+          okText: '删除',
+          cancelText: '取消',
+          okButtonProps: { danger: true },
+          onOk: async () => {
+            try {
+              await removeSession(session._id);
+              setSessions((prev) => sortSessionList(prev.filter((item) => item._id !== session._id)));
+              if (session._id === sessionIdFromUrl) {
+                updateSessionQuery(null);
+                setMessages([]);
+                setMessagesCursor(null);
+                setHasMoreMessages(false);
+              }
+              message.success('对话已删除');
+            } catch (error) {
+              console.error(error);
+              message.error('删除失败，请稍后重试');
+              throw error;
+            }
+          },
+        });
+        return;
+      }
+      if (action === 'pin' || action === 'unpin') {
+        void handleTogglePin(session._id, action === 'pin');
+      }
+    },
+    [handleTogglePin, message, sessionIdFromUrl, updateSessionQuery],
+  );
+
   if (initializing || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -453,143 +477,19 @@ const ChatPage: React.FC = () => {
   return (
     <>
       <div className="flex" style={{ height: 'calc(100vh - 150px)' }}>
-        <div className="flex w-70 mr-4 flex-col border border-gray-200 bg-[#f7f8fb] rounded-3xl">
-          <div className="px-6 pt-6 pb-3">
-            <Title level={4} className="!m-0 !text-base text-gray-900">
-              历史记录
-            </Title>
-          </div>
-
-          <div
-            className="flex-1 overflow-y-auto px-4 pb-6"
-            ref={historyContainerRef}
-          >
-            <Button
-              type="primary"
-              icon={<PlusCircleOutlined />}
-              block
-              className="!mb-4 rounded-xl"
-              onClick={() => void handleNewConversation()}
-            >
-              新建对话
-            </Button>
-            {sessions.length === 0 && !sessionLoading ? (
-              <div className="mt-12">
-                <Empty description="暂无历史记录" />
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {sessions.map((session) => {
-                  const active = session._id === sessionIdFromUrl;
-                  const pinKey = session.pinned ? 'unpin' : 'pin';
-                  const menuItems: MenuProps['items'] = [
-                    { key: 'rename', label: '修改名称' },
-                    { key: pinKey, label: session.pinned ? '取消固定' : '固定对话' },
-                    { key: 'delete', danger: true, label: '删除对话' },
-                  ];
-                  const handleMenuClick: MenuProps['onClick'] = ({ key, domEvent }) => {
-                    domEvent.stopPropagation();
-                    const action = key as SessionAction['type'];
-                    if (key === 'rename') {
-                      setRenameTargetId(session._id);
-                      setRenameInputValue(session.title ?? '');
-                      setRenameModalOpen(true);
-                      return;
-                    }
-                    if (action === 'delete') {
-                      Modal.confirm({
-                        title: '删除对话',
-                        content: '确认删除该对话及其所有消息？操作无法撤销。',
-                        okText: '删除',
-                        cancelText: '取消',
-                        okButtonProps: { danger: true },
-                        onOk: async () => {
-                          try {
-                            await removeSession(session._id);
-                            setSessions((prev) =>
-                              sortSessionList(prev.filter((item) => item._id !== session._id)),
-                            );
-                            if (session._id === sessionIdFromUrl) {
-                              updateSessionQuery(null);
-                              setMessages([]);
-                              setMessagesCursor(null);
-                              setHasMoreMessages(false);
-                            }
-                            message.success('对话已删除');
-                          } catch (error) {
-                            console.error(error);
-                            message.error('删除失败，请稍后重试');
-                            throw error;
-                          }
-                        },
-                      });
-                      return;
-                    }
-                    if (action === 'pin' || action === 'unpin') {
-                      void handleTogglePin(session._id, action === 'pin');
-                      return;
-                    }
-                  };
-                  const baseClasses =
-                    'group relative flex items-center justify-between rounded-sm pl-4 pr-2 py-1 transition-colors cursor-pointer';
-                  const activeClasses = active
-                    ? 'bg-[#e4e6eb] text-gray-900'
-                    : 'text-gray-900 hover:bg-[#e4e6eb]';
-                  const iconWrapperClasses = session.pinned
-                    ? 'opacity-100'
-                    : 'opacity-0 group-hover:opacity-100';
-                  return (
-                    <div
-                      key={session._id}
-                      onClick={() => handleSelectSession(session._id)}
-                      className={`${baseClasses} ${activeClasses}`}
-                    >
-                      <Text
-                        className="max-w-[200px] truncate text-sm font-medium"
-                        title={session.title}
-                      >
-                        {session.title}
-                      </Text>
-                      <Dropdown
-                        trigger={['click']}
-                        menu={{ items: menuItems, onClick: handleMenuClick }}
-                      >
-                        <div
-                          className={`relative flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-opacity duration-150 ${iconWrapperClasses}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                          }}
-                        >
-                          {session.pinned ? (
-                            <>
-                              <span className="pointer-events-none transition-opacity duration-150 group-hover:opacity-0">
-                                <PushpinOutlined />
-                              </span>
-                              <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                <EllipsisOutlined />
-                              </span>
-                            </>
-                          ) : (
-                            <EllipsisOutlined className="pointer-events-none" />
-                          )}
-                        </div>
-                      </Dropdown>
-                    </div>
-                  );
-                })}
-                {sessionLoading && (
-                  <div className="flex justify-center py-4">
-                    <Spin size="small" />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <HistoryPanel
+          sessions={sessions}
+          activeSessionId={sessionIdFromUrl}
+          loading={sessionLoading}
+          hasMore={hasMoreSessions}
+          onLoadMore={handleLoadMoreSessions}
+          onSelect={handleSelectSession}
+          onNewSession={handleNewConversation}
+          onMenuAction={handleHistoryMenuAction}
+        />
 
         <div className="flex flex-1 flex-col">
           <ChatConversation
-            key={sessionIdFromUrl ?? 'no-session'}
             sessionId={sessionIdFromUrl ?? undefined}
             messages={messages}
             loading={messagesLoading}

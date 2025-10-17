@@ -62,14 +62,17 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       )}
       {message.images && message.images.length > 0 && (
         <Image.PreviewGroup items={message.images.map((url) => ({ src: url }))}>
-          <div className="grid max-w-[560px] grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+          <div
+            className={`base-message-images flex flex-wrap gap-3 items-start ${isUser ? 'self-end' : 'self-start'}`}
+          >
             {message.images.map((url, index) => (
-              <Image
-                key={`${message.id}-image-${index}`}
-                src={url}
-                alt="生成的图片"
-                className="h-40 w-full rounded-xl object-cover"
-              />
+              <div className='rounded-xl overflow-hidden' key={`${message.id}-image-${index}`}>
+                <Image
+                  src={url}
+                  alt="生成的图片"
+                  className="object-cover"
+                />
+              </div>
             ))}
           </div>
         </Image.PreviewGroup>

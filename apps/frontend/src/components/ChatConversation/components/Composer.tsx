@@ -1,6 +1,13 @@
 import React from 'react';
 import { Dropdown, Image, Input, Upload } from 'antd';
-import { CloseOutlined, PauseOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
+import {
+  CloseOutlined,
+  PauseOutlined,
+  PlusOutlined,
+  SendOutlined,
+  UploadOutlined,
+  HeartOutlined,
+} from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
 import type { UploadResultItem } from '../types';
 import AspectRatioSelector, { type AspectRatioOption } from './AspectRatioSelector';
@@ -70,22 +77,25 @@ const Composer: React.FC<ComposerProps> = ({
                 return (
                   <div
                     key={file.uid}
-                    className="group relative h-20 w-20 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+                    className="group relative h-20 w-20  border border-gray-200 bg-gray-50"
                   >
-                    {url ? (
-                      <Image src={url} alt={file.name ?? '已上传图片'} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs text-gray-500">
-                        {file.name ?? '图片'}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className="absolute right-1.5 top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white transition group-hover:flex"
+                    <div className='rounded-2xl overflow-hidden w-full h-full'>
+                      <Image
+                        src={url}
+                        alt={file.name ?? '已上传图片'}
+                        className="object-cover"
+                        height={80}
+                        width={80}
+                      />
+                    </div>
+                    <div
+                      role="button"
+                      aria-label="移除图片"
+                      className="absolute right-[-8px] top-[-8px] flex h-5 w-5 items-center justify-center rounded-full bg-black text-white border-[2px] border-white shadow-sm cursor-pointer"
                       onClick={() => onRemove?.(file)}
                     >
-                      <CloseOutlined className="text-xs" />
-                    </button>
+                      <CloseOutlined className="text-[10px]" />
+                    </div>
                   </div>
                 );
               })}
@@ -122,8 +132,9 @@ const Composer: React.FC<ComposerProps> = ({
                         multiple
                         accept="image/*"
                       >
-                        <div className="flex items-center justify-between rounded-lg text-sm text-gray-700 transition-colors">
-                          上传图片
+                        <div className="flex items-center gap-2 rounded-lg text-sm text-gray-700 transition-colors">
+                          <UploadOutlined />
+                          <span>上传图片</span>
                         </div>
                       </Upload>
                     ),
@@ -131,7 +142,10 @@ const Composer: React.FC<ComposerProps> = ({
                   {
                     key: 'favorites',
                     label: (
-                      <div className="rounded-lg text-sm text-gray-400 transition-colors">选择收藏（敬请期待）</div>
+                      <div className="flex items-center gap-2 rounded-lg text-sm text-gray-400 transition-colors">
+                        <HeartOutlined />
+                        <span>选择收藏（敬请期待）</span>
+                      </div>
                     ),
                     disabled: true,
                   },
@@ -177,4 +191,3 @@ const Composer: React.FC<ComposerProps> = ({
 };
 
 export default Composer;
-
