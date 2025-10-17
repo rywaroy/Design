@@ -452,8 +452,8 @@ const ChatPage: React.FC = () => {
 
   return (
     <>
-      <div className="flex min-h-screen">
-        <div className="flex w-70 mr-4 flex-col border-r border-gray-200 bg-[#f7f8fb]">
+      <div className="flex" style={{ height: 'calc(100vh - 150px)' }}>
+        <div className="flex w-70 mr-4 flex-col border border-gray-200 bg-[#f7f8fb] rounded-3xl">
           <div className="px-6 pt-6 pb-3">
             <Title level={4} className="!m-0 !text-base text-gray-900">
               历史记录
@@ -589,6 +589,7 @@ const ChatPage: React.FC = () => {
 
         <div className="flex flex-1 flex-col">
           <ChatConversation
+            key={sessionIdFromUrl ?? 'no-session'}
             sessionId={sessionIdFromUrl ?? undefined}
             messages={messages}
             loading={messagesLoading}

@@ -188,7 +188,7 @@ const DefaultLayout: React.FC = () => {
       />
 
       <main className="flex flex-1 justify-center">
-        <div className="w-full max-w-6xl px-6 py-8">
+        <div className="w-full max-w-6xl px-3 py-4">
           <Outlet />
         </div>
       </main>
