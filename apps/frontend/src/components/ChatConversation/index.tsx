@@ -399,6 +399,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
         onChange={handleUploadChange}
         onRemove={handleRemove}
         customRequest={handleUpload}
+        maxImageCount={maxImageCount}
         aspectRatioOptions={availableAspectRatioOptions}
         aspectRatio={activeAspectRatio}
         onAspectRatioChange={setActiveAspectRatio}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dropdown, Image, Input, Upload } from 'antd';
+import { App, Dropdown, Image, Input, Upload } from 'antd';
 import {
   CloseOutlined,
   PauseOutlined,
@@ -11,6 +11,7 @@ import {
 import type { UploadFile, UploadProps } from 'antd';
 import type { UploadResultItem } from '../types';
 import AspectRatioSelector, { type AspectRatioOption } from './AspectRatioSelector';
+import FavoritePickerModal from './FavoritePickerModal';
 
 export interface ComposerProps {
   inputValue: string;
@@ -24,6 +25,7 @@ export interface ComposerProps {
   onChange: UploadProps['onChange'];
   onRemove: UploadProps['onRemove'];
   customRequest: UploadProps['customRequest'];
+  maxImageCount: number;
 
   // Aspect ratio
   aspectRatioOptions: AspectRatioOption[];
@@ -48,6 +50,7 @@ const Composer: React.FC<ComposerProps> = ({
   onChange,
   onRemove,
   customRequest,
+  maxImageCount,
   aspectRatioOptions,
   aspectRatio,
   onAspectRatioChange,
@@ -57,6 +60,56 @@ const Composer: React.FC<ComposerProps> = ({
   hasActiveModel,
   onSubmit,
 }) => {
+  const { message } = App.useApp();
+  const [favoriteOpen, setFavoriteOpen] = React.useState(false);
+
+  const handleOpenFavorite = () => setFavoriteOpen(true);
+  const handleCloseFavorite = () => setFavoriteOpen(false);
+
+  const existingUrls = React.useMemo(() => {
+    return fileList
+      .map((item) => {
+        const response = item.response as UploadResultItem | undefined;
+        return item.url || item.thumbUrl || response?.url;
+      })
+      .filter((u): u is string => Boolean(u));
+  }, [fileList]);
+
+  const remaining = Math.max(0, maxImageCount - existingUrls.length);
+
+  const handleFavoriteConfirm = (entries: { id: string; url: string }[]) => {
+    if (!entries || entries.length === 0) {
+      setFavoriteOpen(false);
+      return;
+    }
+    const deduped = entries.filter((e) => !existingUrls.includes(e.url));
+    if (deduped.length === 0) {
+      message.info('所选图片均已在上传列表');
+      setFavoriteOpen(false);
+      return;
+    }
+    const allowed = remaining > 0 ? deduped.slice(0, remaining) : [];
+    if (allowed.length === 0) {
+      message.warning(`最多上传 ${maxImageCount} 张图片`);
+      setFavoriteOpen(false);
+      return;
+    }
+
+    const toAdd: UploadFile[] = allowed.map((entry) => ({
+      uid: `fav-${entry.id}`,
+      name: `favorite-${entry.id}`,
+      status: 'done',
+      url: entry.url,
+      thumbUrl: entry.url,
+      type: 'image/*',
+    }));
+
+    const nextList: UploadFile[] = [...fileList, ...toAdd];
+    // leverage parent's onChange to normalize and set
+    onChange?.({ fileList: nextList } as any);
+    setFavoriteOpen(false);
+  };
+
   return (
     <div className="px-6 py-4">
       <div className="flex flex-col gap-3">
@@ -143,12 +196,14 @@ const Composer: React.FC<ComposerProps> = ({
                   {
                     key: 'favorites',
                     label: (
-                      <div className="flex items-center gap-2 rounded-lg text-sm text-gray-400 transition-colors">
+                      <div
+                        className="flex items-center gap-2 rounded-lg text-sm text-gray-700 transition-colors"
+                        onClick={handleOpenFavorite}
+                      >
                         <HeartOutlined />
-                        <span>选择收藏（敬请期待）</span>
+                        <span>选择收藏</span>
                       </div>
                     ),
-                    disabled: true,
                   },
                 ],
                 className:
@@ -186,6 +241,13 @@ const Composer: React.FC<ComposerProps> = ({
             </div>
           </div>
         </div>
+        <FavoritePickerModal
+          open={favoriteOpen}
+          onCancel={handleCloseFavorite}
+          onConfirm={handleFavoriteConfirm}
+          remaining={remaining}
+          existingUrls={existingUrls}
+        />
       </div>
     </div>
   );
