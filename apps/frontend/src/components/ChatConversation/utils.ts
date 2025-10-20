@@ -2,6 +2,7 @@ import type { UploadResultItem } from './types';
 import { uploadImages } from '../../services/chat';
 
 export const DEFAULT_ASPECT_RATIO_OPTIONS = [
+  { label: '不限', value: '' },
   { label: '1:1', value: '1:1' },
   { label: '2:3', value: '2:3' },
   { label: '3:2', value: '3:2' },

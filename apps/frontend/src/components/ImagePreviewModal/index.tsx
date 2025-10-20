@@ -1,9 +1,21 @@
 import type { FC, MouseEvent as ReactMouseEvent, SyntheticEvent } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from 'antd';
-import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, DownloadOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  CloseOutlined,
+  DownloadOutlined,
+  OpenAIOutlined,
+  PictureOutlined,
+} from '@ant-design/icons';
 import type { ScreenListItem } from '../../services/screen';
 import { resolveAssetUrl } from '../../lib/asset';
+import ChatConversation, {
+  type ChatConversationHandle,
+  type ChatConversationMessage,
+} from '../ChatConversation';
+import type { PresetUploadImage } from '../ChatConversation/types';
 
 export type ScreenPreviewItem = ScreenListItem & {
   previewUrl?: string;
@@ -113,6 +125,10 @@ const resolveDownloadUrl = (screen: ScreenPreviewItem | undefined) => {
 
 const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(() => clampIndex(initialIndex, screens.length));
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatConversationMessage[]>([]);
+  const [chatSessionId, setChatSessionId] = useState<string | undefined>(undefined);
+  const chatRef = useRef<ChatConversationHandle>(null);
 
   useEffect(() => {
     if (!open) {
@@ -120,6 +136,15 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
     }
     setCurrentIndex(clampIndex(initialIndex, screens.length));
   }, [open, initialIndex, screens.length]);
+
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    setChatOpen(false);
+    setChatMessages([]);
+    setChatSessionId(undefined);
+  }, [open]);
 
   const hasScreens = screens.length > 0;
 
@@ -133,11 +158,44 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
   const imageSrc = useMemo(() => resolveScreenPreviewUrl(currentScreen), [currentScreen]);
 
   const downloadUrl = useMemo(() => resolveDownloadUrl(currentScreen), [currentScreen]);
+  const chatPresetImages = useMemo<PresetUploadImage[] | undefined>(() => {
+    if (!imageSrc) {
+      return undefined;
+    }
+    return [
+      {
+        url: imageSrc,
+        name: currentScreen?.screenId ?? 'preview-image',
+      },
+    ];
+  }, [currentScreen?.screenId, imageSrc]);
 
-  const handleClose = useCallback((event?: ReactMouseEvent<HTMLButtonElement> | SyntheticEvent) => {
-    event?.stopPropagation();
-    onClose();
-  }, [onClose]);
+  const handleClose = useCallback(
+    (event?: ReactMouseEvent<HTMLButtonElement> | SyntheticEvent) => {
+      event?.stopPropagation();
+      onClose();
+    },
+    [onClose],
+  );
+
+  const handleAppendCurrentImage = useCallback(() => {
+    if (!chatPresetImages || chatPresetImages.length === 0) {
+      return;
+    }
+    chatRef.current?.appendImages(chatPresetImages);
+  }, [chatPresetImages]);
+
+  const handleToggleChat = useCallback(() => {
+    setChatOpen((prev) => {
+      const next = !prev;
+      if (!prev && chatPresetImages && chatPresetImages.length > 0) {
+        window.requestAnimationFrame(() => {
+          chatRef.current?.appendImages(chatPresetImages);
+        });
+      }
+      return next;
+    });
+  }, [chatPresetImages]);
 
   const handlePrev = useCallback(() => {
     if (!hasScreens || screens.length <= 1) {
@@ -210,64 +268,113 @@ const ImagePreviewModal: FC<ImagePreviewModalProps> = ({ open, screens, initialI
       }}
       rootClassName="image-preview-modal-root"
     >
-      <div className="relative flex h-[95vh] w-full max-w-[95vw] flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl">
-        <button
-          type="button"
-          aria-label="关闭预览"
-          className="absolute right-6 top-6 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-gray-600 transition hover:bg-black/10 cursor-pointer"
-          onClick={handleClose}
+      <div className="flex h-[95vh] w-full max-w-[95vw] overflow-hidden rounded-[32px] shadow-2xl gap-2">
+        <div
+          className={`relative flex flex-col bg-white transition-[flex-basis] duration-300 flex-6 rounded-3xl overflow-hidden`}
         >
-          <CloseOutlined className="text-base" />
-        </button>
+          <button
+            type="button"
+            aria-label="关闭预览"
+            className="absolute right-6 top-6 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-gray-600 transition hover:bg-black/10 cursor-pointer"
+            onClick={handleClose}
+          >
+            <CloseOutlined className="text-base" />
+          </button>
 
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white">
-          <div className="flex h-[95%] w-[95%] items-center justify-center rounded-[28px] bg-white/90 p-2 transition-shadow">
-            <img
-              src={imageSrc}
-              alt="预览图片"
-              className={`max-h-[90%] max-w-[90%] rounded-[24px] object-contain ${
-                isRecommended ? 'ring-4 ring-yellow-300/80' : ''
-              }`}
-            />
+          <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white px-4 py-10">
+            <div className="flex h-full w-full items-center justify-center rounded-[28px] bg-white/90 p-4">
+              <img
+                src={imageSrc}
+                alt="预览图片"
+                className={`max-h-full max-w-full rounded-[24px] object-contain ${
+                  isRecommended ? 'ring-4 ring-yellow-300/80' : ''
+                }`}
+              />
+            </div>
+
+            {screens.length > 1 ? (
+              <>
+                <div className="pointer-events-none absolute left-8 top-1/2 flex -translate-y-1/2 items-center">
+                  <button
+                    type="button"
+                    aria-label="上一张"
+                    className="pointer-events-auto flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
+                    onClick={handlePrev}
+                  >
+                    <ArrowLeftOutlined className="text-lg" />
+                  </button>
+                </div>
+                <div className="pointer-events-none absolute right-8 top-1/2 flex -translate-y-1/2 items-center">
+                  <button
+                    type="button"
+                    aria-label="下一张"
+                    className="pointer-events-auto flex h-12 w-12 translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
+                    onClick={handleNext}
+                  >
+                    <ArrowRightOutlined className="text-lg" />
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
 
-          {screens.length > 1 ? (
-            <>
-              <div className="pointer-events-none absolute left-8 top-1/2 flex -translate-y-1/2 items-center">
+          <div className="pointer-events-none absolute bottom-6 left-6 right-6 z-30 flex flex-col items-end gap-3 md:left-auto md:right-6">
+            {downloadUrl ? (
+              <button
+                type="button"
+                aria-label="下载原图"
+                className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-lg text-gray-700 shadow-lg transition hover:bg-white"
+                onClick={() => {
+                  void downloadFile(downloadUrl);
+                }}
+              >
+                <DownloadOutlined />
+              </button>
+            ) : null}
+            <div className="pointer-events-auto flex items-center gap-3">
+              {chatOpen ? (
                 <button
                   type="button"
-                  aria-label="上一张"
-                  className="pointer-events-auto flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
-                  onClick={handlePrev}
+                  aria-label="将当前图片加入对话"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+                  onClick={handleAppendCurrentImage}
                 >
-                  <ArrowLeftOutlined className="text-lg" />
+                  <PictureOutlined />
+                  加入当前图
                 </button>
-              </div>
-              <div className="pointer-events-none absolute right-8 top-1/2 flex -translate-y-1/2 items-center">
-                <button
-                  type="button"
-                  aria-label="下一张"
-                  className="pointer-events-auto flex h-12 w-12 translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg opacity-90 transition hover:bg-white cursor-pointer"
-                  onClick={handleNext}
-                >
-                  <ArrowRightOutlined className="text-lg" />
-                </button>
-              </div>
-            </>
-          ) : null}
+              ) : null}
+              <button
+                type="button"
+                aria-label="打开图生图对话"
+                className={`flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 text-lg shadow-lg ${
+                  chatOpen
+                    ? 'bg-black !text-white'
+                    : 'bg-white'
+                }`}
+                onClick={handleToggleChat}
+              >
+                <OpenAIOutlined className='text-lg' />
+              </button>
+            </div>
+          </div>
         </div>
-        {downloadUrl ? (
-          <div className="pointer-events-none absolute bottom-6 right-6 z-20">
-            <button
-              type="button"
-              aria-label="下载原图"
-              className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-lg text-gray-700 shadow-lg transition hover:bg-white"
-              onClick={() => {
-                void downloadFile(downloadUrl);
-              }}
-            >
-              <DownloadOutlined />
-            </button>
+
+        {chatOpen ? (
+          <div className="flex h-full flex-col border-t border-gray-100 flex-4 overflow-hidden rounded-3xl">
+            <div className="flex flex-1 overflow-hidden w-full">
+              <ChatConversation
+                className="w-full"
+                ref={chatRef}
+                sessionId={chatSessionId}
+                messages={chatMessages}
+                loading={false}
+                hasMoreMessages={false}
+                maxImageCount={4}
+                placeholder="说明你想对这张图做什么调整"
+                onMessagesChange={setChatMessages}
+                onSessionCreate={(session) => setChatSessionId(session._id)}
+              />
+            </div>
           </div>
         ) : null}
       </div>

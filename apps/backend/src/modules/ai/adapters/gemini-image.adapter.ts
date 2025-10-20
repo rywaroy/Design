@@ -96,7 +96,7 @@ export class GeminiImageAdapter
 
     const model = dto.model || this.imageModel;
 
-    const aspectRatio = dto.aspectRatio?.trim() || '1:1';
+    const aspectRatio = dto.aspectRatio?.trim() || '';
 
     return {
       history: contents,
@@ -105,9 +105,7 @@ export class GeminiImageAdapter
         generationConfig: {
           // 允许模型返回图片或文字任一形式
           responseModalities: ['Image', 'Text'],
-          imageConfig: {
-            aspectRatio,
-          },
+          imageConfig: aspectRatio ? { aspectRatio } : undefined,
         },
       },
       userRecord,

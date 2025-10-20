@@ -13,3 +13,8 @@ export interface UploadResultItem {
   url: string;
   name?: string;
 }
+
+export interface PresetUploadImage {
+  url: string;
+  name?: string;
+}

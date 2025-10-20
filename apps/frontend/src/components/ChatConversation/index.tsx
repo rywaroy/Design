@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { App, Button, Empty, Spin } from 'antd';
+import type { UploadFile } from 'antd';
 import { createSession, sendChatMessage, type ChatResponsePayload, type SessionItem } from '../../services/chat';
-import type { ChatConversationMessage } from './types';
+import type { ChatConversationMessage, PresetUploadImage, UploadResultItem } from './types';
 import { DEFAULT_ASPECT_RATIO_OPTIONS, DEFAULT_PLACEHOLDER, deriveSessionTitle, scrollToBottom } from './utils';
 import useAutoScroll from './hooks/useAutoScroll';
 import useUpload from './hooks/useUpload';
@@ -13,6 +23,7 @@ import ModelSelector from './components/ModelSelector';
 export type { ChatConversationMessage } from './types';
 
 export interface ChatConversationProps {
+  className?: string;
   sessionId?: string;
   messages: ChatConversationMessage[];
   loading?: boolean;
@@ -28,21 +39,29 @@ export interface ChatConversationProps {
   onError?: (error: Error) => void;
 }
 
-const ChatConversation: React.FC<ChatConversationProps> = ({
-  sessionId,
-  messages,
-  loading,
-  maxImageCount = 4,
-  aspectRatioOptions = DEFAULT_ASPECT_RATIO_OPTIONS,
-  hasMoreMessages,
-  loadingMoreMessages,
-  onLoadMoreMessages,
-  placeholder = DEFAULT_PLACEHOLDER,
-  onMessagesChange,
-  onSessionCreate,
-  onMessageCreate,
-  onError,
-}) => {
+export interface ChatConversationHandle {
+  appendImages: (images: PresetUploadImage[]) => void;
+}
+
+const ChatConversation = forwardRef<ChatConversationHandle, ChatConversationProps>(function ChatConversation(
+  {
+    className,
+    sessionId,
+    messages,
+    loading,
+    maxImageCount = 4,
+    aspectRatioOptions = DEFAULT_ASPECT_RATIO_OPTIONS,
+    hasMoreMessages,
+    loadingMoreMessages,
+    onLoadMoreMessages,
+    placeholder = DEFAULT_PLACEHOLDER,
+    onMessagesChange,
+    onSessionCreate,
+    onMessageCreate,
+    onError,
+  },
+  ref,
+) {
   const { message: messageApi } = App.useApp();
   const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -79,6 +98,55 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   const loadingMoreByScrollRef = useRef(false);
   // Track if the incoming props.messages change was caused by our own onMessagesChange callback
   const fromInternalUpdateRef = useRef(false);
+
+  const appendImages = useCallback((images: PresetUploadImage[]) => {
+    if (!images || images.length === 0) {
+      return;
+    }
+    setFileList((prev) => {
+      const existingUrls = new Set(
+        prev
+          .map((item) => item.url || (item.response as UploadResultItem | undefined)?.url)
+          .filter((url): url is string => Boolean(url)),
+      );
+      const normalized = images.filter((item): item is PresetUploadImage => Boolean(item?.url));
+      if (normalized.length === 0) {
+        return prev;
+      }
+      const availableSlots = Math.max(0, maxImageCount - prev.length);
+      if (availableSlots <= 0) {
+        notifyError(`最多上传 ${maxImageCount} 张图片`);
+        return prev;
+      }
+      const deduped = normalized.filter((item) => !existingUrls.has(item.url));
+      if (deduped.length === 0) {
+        return prev;
+      }
+      const allowed = deduped.slice(0, availableSlots);
+      if (allowed.length < deduped.length) {
+        notifyError(`已达上传上限（最多 ${maxImageCount} 张）`);
+      }
+      const timestamp = Date.now();
+      const nextPreset: UploadFile<UploadResultItem>[] = allowed.map((item, index) => ({
+        uid: `preset-${timestamp}-${index}`,
+        name: item.name ?? `图片-${index + 1}`,
+        status: 'done',
+        url: item.url,
+        thumbUrl: item.url,
+        type: 'image/*',
+        response: { url: item.url, name: item.name },
+      }));
+      return [...prev, ...nextPreset];
+    });
+  }, [maxImageCount, notifyError, setFileList]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      appendImages,
+    }),
+    [appendImages],
+  );
 
   const ensureScrollBottom = useCallback(() => {
     const container = scrollRef.current;
@@ -354,7 +422,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   };
 
   return (
-    <div className="flex h-full flex-col rounded-3xl border border-gray-200 bg-[#f9fafb]">
+    <div className={`flex h-full flex-col rounded-3xl border border-gray-200 bg-[#f9fafb] ${className}`}>
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
         <div className='flex items-center'>
           <ModelSelector options={modelOptionsState} value={activeModel} onChange={setActiveModel} />
@@ -411,6 +479,10 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
       />
     </div>
   );
-};
+});
+
+ChatConversation.displayName = 'ChatConversation';
 
 export default ChatConversation;
+
+export type { ChatConversationHandle };
