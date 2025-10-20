@@ -35,7 +35,8 @@ export class AiService {
   private readonly model: string;
   private readonly apiKey: string;
   private readonly adapters: AiChatAdapter[];
-  private readonly chatHistoryLimit = 50;
+  private readonly chatHistoryLimit =
+    this.configService.get<number>('ai.chatHistoryLimit') ?? 12;
 
   constructor(
     private readonly configService: ConfigService,
@@ -137,9 +138,8 @@ export class AiService {
   }
 
   async chat(dto: AiChatRequestDto): Promise<AiChatResponseDto> {
-    const resolved: ResolvedModelConfig = await this.modelService.resolveForChat(
-      dto.model,
-    );
+    const resolved: ResolvedModelConfig =
+      await this.modelService.resolveForChat(dto.model);
 
     // 直接按名称匹配适配器，未命中则报错
     const adapter = this.adapters.find(
@@ -156,7 +156,10 @@ export class AiService {
       limit: this.chatHistoryLimit,
     });
 
-    const prepared = await adapter.prepare({ ...dto, model: resolved.model }, history);
+    const prepared = await adapter.prepare(
+      { ...dto, model: resolved.model },
+      history,
+    );
 
     // 将模型配置注入到适配器调用的 prepared 中
     const patchedPrepared = {
