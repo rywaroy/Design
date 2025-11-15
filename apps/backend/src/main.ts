@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -12,6 +13,7 @@ const SWAGGER_V1 = `${PREFIX}/v1/swagger`;
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const configService = app.get(ConfigService);
 
   app.setGlobalPrefix(PREFIX);
 
@@ -47,6 +49,7 @@ async function bootstrap() {
   // 使用管道验证数据
   app.useGlobalPipes(new ValidationPipe());
 
-  await app.listen(3001);
+  const port = configService.get<number>('app.port') ?? 3000;
+  await app.listen(port);
 }
 bootstrap();
