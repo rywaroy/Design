@@ -8,10 +8,13 @@ export interface TagNode {
 
 const resolveDataFile = (fileName: string): string | null => {
   const cwd = process.cwd();
+  const runtimeRoot = join(__dirname, '..', '..', '..', '..');
   const candidates: string[] = [];
   const tryPaths = [
     join(__dirname, '..', 'data', fileName),
     join(__dirname, '..', '..', 'data', fileName),
+    join(runtimeRoot, 'modules', 'screen', 'data', fileName),
+    join(runtimeRoot, 'src', 'modules', 'screen', 'data', fileName),
     join(cwd, 'dist', 'modules', 'screen', 'data', fileName),
     join(cwd, 'src', 'modules', 'screen', 'data', fileName),
   ];

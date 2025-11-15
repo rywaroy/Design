@@ -5,10 +5,13 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const resolveDataFile = (fileName) => {
     const cwd = process.cwd();
+    const runtimeRoot = (0, path_1.join)(__dirname, '..', '..', '..', '..');
     const candidates = [];
     const tryPaths = [
         (0, path_1.join)(__dirname, '..', 'data', fileName),
         (0, path_1.join)(__dirname, '..', '..', 'data', fileName),
+        (0, path_1.join)(runtimeRoot, 'modules', 'screen', 'data', fileName),
+        (0, path_1.join)(runtimeRoot, 'src', 'modules', 'screen', 'data', fileName),
         (0, path_1.join)(cwd, 'dist', 'modules', 'screen', 'data', fileName),
         (0, path_1.join)(cwd, 'src', 'modules', 'screen', 'data', fileName),
     ];
