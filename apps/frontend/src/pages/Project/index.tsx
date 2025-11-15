@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Segmented, Spin, Empty, FloatButton, Badge, Button } from 'antd';
+import type { ChangeEvent } from 'react';
+import { Segmented, Spin, Empty, FloatButton, Badge, Button, Input } from 'antd';
 import type { SegmentedValue } from 'antd/es/segmented';
-import { FilterOutlined, OpenAIOutlined } from '@ant-design/icons';
+import { FilterOutlined, OpenAIOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ProjectListItem, ProjectListParams, ProjectPlatform } from '../../services/project';
 import { getProjects, getProjectFilters } from '../../services/project';
 import ProjectCard from '../../components/ProjectCard';
@@ -48,14 +49,28 @@ const useInfinityProjects = (
   convertFiltersToParams: (selection: ProjectFilterSelectionState) => Partial<ProjectListParams>,
 ) => {
   const { state, setState } = useProjectListContext();
-  const { platform, projects, currentPage, hasMore, total, loading, scrollTop, filters } = state;
+  const {
+    platform,
+    projects,
+    currentPage,
+    hasMore,
+    total,
+    loading,
+    scrollTop,
+    filters,
+    searchKeyword,
+  } = state;
   const loadingRef = useRef(false);
   const requestIdRef = useRef(0);
   const filtersRef = useRef<ProjectFilterSelectionState>(filters);
+  const searchKeywordRef = useRef(searchKeyword);
 
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+  useEffect(() => {
+    searchKeywordRef.current = searchKeyword;
+  }, [searchKeyword]);
   const mergeProjects = useCallback(
     (prevList: ProjectListItem[], nextItems: ProjectListItem[], replace?: boolean) => {
       if (replace) {
@@ -90,6 +105,7 @@ const useInfinityProjects = (
         replace?: boolean;
         platform?: ProjectPlatform;
         filtersSelection?: ProjectFilterSelectionState;
+        searchKeyword?: string;
       },
     ) => {
       if (loadingRef.current && !params.replace) {
@@ -103,18 +119,26 @@ const useInfinityProjects = (
 
       const selection = params.filtersSelection ?? filtersRef.current;
       const filterParams = convertFiltersToParams(selection);
+      const keyword =
+        typeof params.searchKeyword === 'string' ? params.searchKeyword : searchKeywordRef.current;
+      const trimmedKeyword = keyword.trim();
 
       setState((prev) => ({
         ...prev,
         loading: true,
       }));
 
-      const response = await getProjects({
+      const requestParams: ProjectListParams = {
         page: params.page,
         pageSize: PAGE_SIZE,
         platform: targetPlatform,
         ...filterParams,
-      });
+      };
+      if (trimmedKeyword) {
+        requestParams.appName = trimmedKeyword;
+      }
+
+      const response = await getProjects(requestParams);
       const { items, total: totalItems } = response.data;
       const nextPage = typeof params.page === 'number' ? params.page ?? 1 : Number(params.page ?? 1);
       const totalCount = typeof totalItems === 'number' ? totalItems : Number(totalItems ?? 0);
@@ -190,6 +214,22 @@ const useInfinityProjects = (
     [setState],
   );
 
+  const setSearchKeyword = useCallback(
+    (value: string) => {
+      searchKeywordRef.current = value;
+      setState((prev) => {
+        if (prev.searchKeyword === value) {
+          return prev;
+        }
+        return {
+          ...prev,
+          searchKeyword: value,
+        };
+      });
+    },
+    [setState],
+  );
+
   const refresh = useCallback(
     (selection?: ProjectFilterSelectionState) => {
       void fetchProjects({ page: 1, replace: true, filtersSelection: selection });
@@ -239,6 +279,8 @@ const useInfinityProjects = (
     updateProjectFavorite,
     setFilters,
     refresh,
+    searchKeyword,
+    setSearchKeyword,
   };
 };
 
@@ -288,10 +330,13 @@ const ProjectPage: React.FC = () => {
     updateProjectFavorite,
     setFilters,
     refresh,
+    searchKeyword,
+    setSearchKeyword,
   } =
     useInfinityProjects(convertFiltersToParams);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [favoritePending, setFavoritePending] = useState<Record<string, boolean>>({});
+  const [searchValue, setSearchValue] = useState(searchKeyword);
   const gridClassName = useMemo(() => {
     if (platform === 'ios') {
       return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3';
@@ -299,6 +344,10 @@ const ProjectPage: React.FC = () => {
 
     return 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2';
   }, [platform]);
+
+  useEffect(() => {
+    setSearchValue(searchKeyword);
+  }, [searchKeyword]);
 
   const activeFilterCount = useMemo(() => {
     return PROJECT_FILTER_FIELDS.reduce((count, field) => {
@@ -373,6 +422,32 @@ const ProjectPage: React.FC = () => {
       }
     },
     [],
+  );
+
+  const handleSearchInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setSearchValue(value);
+      if (value === '' && searchKeyword !== '') {
+        setSearchKeyword('');
+        refresh();
+      }
+    },
+    [refresh, searchKeyword, setSearchKeyword],
+  );
+
+  const handleSearchSubmit = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      setSearchValue(trimmed);
+      if (trimmed === searchKeyword) {
+        refresh();
+        return;
+      }
+      setSearchKeyword(trimmed);
+      refresh();
+    },
+    [refresh, searchKeyword, setSearchKeyword],
   );
 
   const handleFilterApply = (selection: FilterSelectionState) => {
@@ -493,8 +568,16 @@ const ProjectPage: React.FC = () => {
   return (
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-2">
-          
+        <div className="space-y-4">
+          <Input.Search
+            value={searchValue}
+            allowClear
+            placeholder="搜索项目名称"
+            enterButton={<SearchOutlined />}
+            onChange={handleSearchInputChange}
+            onSearch={handleSearchSubmit}
+            className="w-full md:w-80"
+          />
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">

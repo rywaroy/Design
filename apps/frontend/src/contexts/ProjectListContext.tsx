@@ -16,6 +16,7 @@ export interface ProjectListState {
   error: string | null;
   scrollTop: number;
   filters: ProjectFilterSelectionState;
+  searchKeyword: string;
 }
 
 interface ProjectListContextValue {
@@ -35,6 +36,7 @@ const createInitialProjectListState = (): ProjectListState => ({
   error: null,
   scrollTop: 0,
   filters: createInitialProjectFilterSelection(),
+  searchKeyword: '',
 });
 
 const ProjectListContext = createContext<ProjectListContextValue | undefined>(undefined);
