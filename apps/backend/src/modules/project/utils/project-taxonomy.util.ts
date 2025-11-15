@@ -8,10 +8,13 @@ export interface TaxonomyNode {
 
 const resolveDataFile = (fileName: string): string | null => {
   const cwd = process.cwd();
+  const runtimeRoot = join(__dirname, '..', '..', '..', '..');
   const candidates: string[] = [];
   const tryPaths = [
     join(__dirname, '..', 'data', fileName),
     join(__dirname, '..', '..', 'data', fileName),
+    join(runtimeRoot, 'modules', 'project', 'data', fileName),
+    join(runtimeRoot, 'src', 'modules', 'project', 'data', fileName),
     join(cwd, 'dist', 'modules', 'project', 'data', fileName),
     join(cwd, 'src', 'modules', 'project', 'data', fileName),
   ];
