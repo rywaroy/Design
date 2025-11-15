@@ -61,14 +61,14 @@ const LoginPage: React.FC = () => {
       <div className="flex w-full flex-col justify-between px-6 py-10 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[420px]">
           <div className="mb-12 flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-xl font-semibold text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-xl  text-white">
               D
             </span>
             <Text className="text-lg font-medium text-gray-900">Design</Text>
           </div>
 
           <header className="mb-10">
-            <Title level={1} className="!mb-4 !text-4xl !font-semibold text-gray-900">
+            <Title level={1} className="!mb-4 !text-4xl ! text-gray-900">
               欢迎回来
             </Title>
             <Paragraph className="!mb-0 text-base text-gray-500">

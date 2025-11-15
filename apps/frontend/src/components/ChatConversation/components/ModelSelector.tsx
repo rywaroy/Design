@@ -31,7 +31,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ options, value, onChange 
       label: (
         <div className="flex items-center justify-between rounded-lg transition-colors hover:bg-gray-100">
           <div className="flex flex-col text-left">
-            <span className="text-sm font-semibold text-gray-900">{opt.name}</span>
+            <span className="text-sm  text-gray-900">{opt.name}</span>
             <span className="text-xs text-gray-500">{opt.model}</span>
           </div>
           {value === opt.value ? (

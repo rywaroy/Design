@@ -1,0 +1,12 @@
+@font-face {
+  font-family: 'DMSans';
+  src: url('../fonts/DMSans-Regular.ttf') format('truetype');
+}
+
+body, .ant-app {
+  font-family: 'DMSans', sans-serif;
+}
+
+.header-menu {
+  font-family: 'DMSans';
+}

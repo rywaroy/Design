@@ -265,7 +265,7 @@ const FilterModal: FC<FilterModalProps> = ({
         </button>
 
         <aside className="flex w-64 flex-col border-r border-white/10 bg-white/5">
-          <div className="flex items-center px-6 py-4 text-lg font-semibold text-white/80">筛选条件</div>
+          <div className="flex items-center px-6 py-4 text-lg  text-white/80">筛选条件</div>
           <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-6">
             {fields.map((field) => {
               const active = field.key === activeFieldKey;
@@ -296,7 +296,7 @@ const FilterModal: FC<FilterModalProps> = ({
 
         <section className="flex flex-1 flex-col">
           <header className="border-b border-white/10 px-8 py-6">
-            <h2 className="text-xl font-semibold text-white">{activeField.label}</h2>
+            <h2 className="text-xl  text-white">{activeField.label}</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {selectedSummary.length > 0 ? (
                 selectedSummary.map((item) => (

@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import 'antd/dist/reset.css';
 import './index.css';
+import './assets/styles/global.css';
 import LoginPage from './pages/Login';
 import ProjectPage from './pages/Project';
 import ProjectDetailPage from './pages/ProjectDetail';

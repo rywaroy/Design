@@ -376,7 +376,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         )}
 
         <div className="flex flex-1 flex-col">
-          <span className="text-sm font-semibold text-gray-900">{project.appName}</span>
+          <span className="text-sm  text-gray-900">{project.appName}</span>
           {project.appTagline ? (
             <span className="text-sm text-gray-500">{project.appTagline}</span>
           ) : null}

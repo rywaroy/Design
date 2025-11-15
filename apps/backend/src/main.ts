@@ -47,6 +47,6 @@ async function bootstrap() {
   // 使用管道验证数据
   app.useGlobalPipes(new ValidationPipe());
 
-  await app.listen(3000);
+  await app.listen(3001);
 }
 bootstrap();

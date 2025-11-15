@@ -428,13 +428,11 @@ const ScreenListPage: FC = () => {
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">页面库</h1>
-          <p className="text-sm text-gray-500">浏览不同平台的设计页面，随时查找灵感。</p>
+
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
           <Segmented
-            size="large"
             options={platformOptions}
             value={platform}
             onChange={handlePlatformChange}

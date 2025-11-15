@@ -653,7 +653,7 @@ const FavoritePage: React.FC = () => {
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">我的收藏</h1>
+          <h1 className="text-2xl  text-gray-900">我的收藏</h1>
           <p className="text-sm text-gray-500">快速访问你收藏的项目与页面，随时继续查看。</p>
         </div>
 

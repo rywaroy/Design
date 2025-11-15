@@ -359,20 +359,13 @@ const ProjectDetailPage: FC = () => {
     };
   }, [fetchScreens, screenState.loading, screenState.hasMore, screenState.page]);
 
-  const projectKeywords = useMemo(() => {
-    if (!project?.keywords) {
-      return [] as string[];
-    }
-    return project.keywords.filter((item) => item.trim().length > 0).slice(0, 10);
-  }, [project?.keywords]);
-
   return (
     <div className="space-y-8">
-      <Button type="text" icon={<LeftOutlined />} onClick={handleBack} className="px-0 text-gray-600">
+      <Button type="text" icon={<LeftOutlined />} onClick={handleBack} className="!px-2 text-gray-600">
         返回
       </Button>
 
-      <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 lg:p-8">
+      <section className="mt-2 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 lg:p-8">
         {projectLoading ? (
           <div className="flex min-h-[200px] items-center justify-center">
             <Spin tip="加载项目详情" />
@@ -390,13 +383,13 @@ const ProjectDetailPage: FC = () => {
                     className="h-16 w-16 rounded-3xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-lg font-semibold text-gray-500">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-lg  text-gray-500">
                     {project.appName.slice(0, 1).toUpperCase()}
                   </div>
                 )}
                 <div className="space-y-1">
                   <div className="flex items-start gap-3">
-                    <h1 className="text-2xl font-semibold text-gray-900">{project.appName}</h1>
+                    <h1 className="text-2xl  text-gray-900">{project.appName}</h1>
                     <button
                       type="button"
                       aria-label={project.isFavorite ? '取消收藏项目' : '收藏项目'}
@@ -414,24 +407,12 @@ const ProjectDetailPage: FC = () => {
                       {project.isFavorite ? <HeartFilled /> : <HeartOutlined />}
                     </button>
                   </div>
-                  <p className="text-sm text-gray-500">{getPlatformLabel(project.platform)}</p>
+                  {project.appTagline ? (
+                    <p className="text-base text-gray-600">{project.appTagline}</p>
+                  ) : null}
                 </div>
               </div>
             </div>
-
-            {project.appTagline ? (
-              <p className="text-base text-gray-600">{project.appTagline}</p>
-            ) : null}
-
-            {projectKeywords.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {projectKeywords.map((keyword) => (
-                  <Tag key={keyword} bordered={false} className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
-                    {keyword}
-                  </Tag>
-                ))}
-              </div>
-            ) : null}
           </div>
         ) : (
           <Empty description="未找到项目详情" />
@@ -439,7 +420,7 @@ const ProjectDetailPage: FC = () => {
       </section>
 
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 lg:p-8">
-        <h2 className="text-xl font-semibold text-gray-900">页面列表</h2>
+        <h2 className="text-xl  text-gray-900">页面列表</h2>
 
         {isInitialScreensLoading ? (
           <div className="flex min-h-[200px] items-center justify-center">

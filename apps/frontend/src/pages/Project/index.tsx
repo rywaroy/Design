@@ -29,8 +29,6 @@ const platformOptions: { label: string; value: ProjectPlatform }[] = [
   { label: 'Web', value: 'web' },
 ];
 
-const secondaryFilters = ['最新', '最受欢迎', '高评分'];
-
 const createInitialPrimaryOptions = () =>
   PROJECT_FILTER_FIELDS.reduce<Record<ProjectFilterDatasetKey, string[]>>((acc, field) => {
     acc[field.datasetKey] = [];
@@ -496,15 +494,11 @@ const ProjectPage: React.FC = () => {
     <div className="space-y-10">
       <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">项目库</h1>
-          <p className="text-sm text-gray-500">
-            浏览最新的设计项目，切换平台查看对应的屏幕预览。
-          </p>
+          
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
           <Segmented
-            size="large"
             options={platformOptions}
             value={platform}
             onChange={handlePlatformChange}
@@ -527,17 +521,6 @@ const ProjectPage: React.FC = () => {
           </Badge>
         </div>
       </header>
-
-      <nav className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-        {secondaryFilters.map((label) => (
-          <span
-            key={label}
-            className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600"
-          >
-            {label}
-          </span>
-        ))}
-      </nav>
 
       <section className={gridClassName}>
         {projects.map((project) => (

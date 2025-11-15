@@ -256,7 +256,7 @@ const ScreenCard: FC<ScreenCardProps> = ({
         {isFavorite ? <HeartFilled /> : <HeartOutlined />}
       </button>
       {isRecommended && !selected ? (
-        <span className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs font-semibold text-yellow-900 shadow-md opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <span className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-yellow-300/95 px-3 py-1 text-xs  text-yellow-900 shadow-md opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           AI 推荐
         </span>
       ) : null}

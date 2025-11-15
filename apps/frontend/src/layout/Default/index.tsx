@@ -7,9 +7,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { AuthUser } from '../../contexts/AuthContext';
 
 const HEADER_MENU_CONFIG = [
-  { key: 'project', label: '项目', path: '/' },
-  { key: 'screen', label: '屏幕', path: '/screen' },
-  { key: 'chat', label: 'AI 对话', path: '/chat' },
+  { key: 'project', label: 'Apps', path: '/' },
+  { key: 'screen', label: 'Screens', path: '/screen' },
+  { key: 'chat', label: 'AI Chat', path: '/chat' }
 ] as const;
 
 type HeaderMenuKey = (typeof HEADER_MENU_CONFIG)[number]['key'];
@@ -66,7 +66,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-6">
         <div className="flex flex-1 items-center">
-          <div className="text-lg font-semibold text-gray-900">Design 控制台</div>
+          <div className="text-[32px] text-gray-900">Design</div>
         </div>
         <div className="flex flex-1 justify-center">
           <Menu
@@ -74,7 +74,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             items={HEADER_MENU_CONFIG.map((item) => ({ key: item.key, label: item.label }))}
             selectedKeys={[activeMenuKey]}
             onClick={({ key }) => onMenuClick(key as HeaderMenuKey)}
-            className="min-w-[200px] border-0 bg-transparent"
+            className="min-w-[200px] border-0 bg-transparent header-menu"
           />
         </div>
         <div className="flex flex-1 items-center justify-end text-sm text-gray-600">
