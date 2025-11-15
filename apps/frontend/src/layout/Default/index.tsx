@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { App as AntApp, Button, Dropdown, Menu, Spin } from 'antd';
+import { App as AntApp, Button, Dropdown, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,7 +9,7 @@ import type { AuthUser } from '../../contexts/AuthContext';
 const HEADER_MENU_CONFIG = [
   { key: 'project', label: 'Apps', path: '/' },
   { key: 'screen', label: 'Screens', path: '/screen' },
-  { key: 'chat', label: 'AI Chat', path: '/chat' }
+  { key: 'chat', label: 'AI Chat', path: '/chat' },
 ] as const;
 
 type HeaderMenuKey = (typeof HEADER_MENU_CONFIG)[number]['key'];
@@ -66,16 +66,44 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-6">
         <div className="flex flex-1 items-center">
-          <div className="text-[32px] text-gray-900">Design</div>
+          <div
+            className="cursor-pointer text-[32px] font-semibold text-gray-900 transition-colors hover:text-gray-700"
+            role="button"
+            tabIndex={0}
+            onClick={() => onMenuClick('project')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onMenuClick('project');
+              }
+            }}
+          >
+            Design
+          </div>
         </div>
         <div className="flex flex-1 justify-center">
-          <Menu
-            mode="horizontal"
-            items={HEADER_MENU_CONFIG.map((item) => ({ key: item.key, label: item.label }))}
-            selectedKeys={[activeMenuKey]}
-            onClick={({ key }) => onMenuClick(key as HeaderMenuKey)}
-            className="min-w-[200px] border-0 bg-transparent header-menu"
-          />
+          <nav className="flex flex-wrap items-center gap-1">
+            {HEADER_MENU_CONFIG.map((item) => {
+              const isActive = item.key === activeMenuKey;
+              return (
+                <Button
+                  key={item.key}
+                  type="text"
+                  onClick={() => onMenuClick(item.key)}
+                  className={`group relative rounded-full px-4 py-2 text-sm font-medium transition-colors hover:!bg-transparent focus:!bg-transparent active:!bg-transparent ${
+                    isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">{item.label}</span>
+                  <span
+                    className={`pointer-events-none absolute bottom-0 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-black transition-all ${
+                      isActive ? 'w-full' : 'group-hover:w-full'
+                    }`}
+                  />
+                </Button>
+              );
+            })}
+          </nav>
         </div>
         <div className="flex flex-1 items-center justify-end text-sm text-gray-600">
           <Dropdown
