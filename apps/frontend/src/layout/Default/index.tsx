@@ -45,6 +45,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   onLogout,
   onOpenFavorite,
 }) => {
+  const [scrolled, setScrolled] = useState(false);
   const userMenuItems: MenuProps['items'] = [
     { key: 'favorite', label: '我的收藏' },
     { type: 'divider' },
@@ -62,8 +63,26 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const headerBackgroundClass = scrolled
+    ? 'bg-white/80 shadow-md backdrop-blur supports-[backdrop-filter]:bg-white/60'
+    : 'bg-white';
+
   return (
-    <header className="border-b border-gray-200 bg-white">
+    <header
+      className={`fixed top-0 left-0 right-0 z-40 border-b border-gray-200 transition-colors duration-300 ${headerBackgroundClass}`}
+    >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-6">
         <div className="flex flex-1 items-center">
           <div
@@ -215,7 +234,7 @@ const DefaultLayout: React.FC = () => {
         onOpenFavorite={handleOpenFavorite}
       />
 
-      <main className="flex flex-1 justify-center">
+      <main className="flex flex-1 justify-center pt-16">
         <div className="w-full max-w-6xl px-3 py-4">
           <Outlet />
         </div>
