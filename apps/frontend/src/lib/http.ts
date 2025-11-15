@@ -47,7 +47,7 @@ export const setTokenResolver = (resolver: TokenResolver) => {
   resolveToken = resolver;
 };
 
-const baseURL = '/api';
+const baseURL = (import.meta.env?.VITE_API_BASE as string | undefined) || '/api';
 const DEFAULT_TIMEOUT = 60000;
 const ERROR_MESSAGE_KEY = 'global-http-error';
 
