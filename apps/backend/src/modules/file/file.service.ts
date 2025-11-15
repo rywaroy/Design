@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileInfoDto } from './dto/file-info.dto';
 import * as path from 'path';
 
 @Injectable()
 export class FileService {
+  constructor(private readonly configService: ConfigService) {}
   /**
    * 处理上传的文件，返回文件信息
    * @param file 上传的文件
@@ -11,7 +13,8 @@ export class FileService {
    */
   processUploadedFile(file: Express.Multer.File): FileInfoDto {
     const fileExtension = path.extname(file.originalname);
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    const baseUrl =
+      this.configService.get<string>('app.baseUrl') || 'http://localhost:3000';
 
     // 生成相对路径用于URL（统一使用正斜杠）
     const relativePath = file.path.replace(/\\/g, '/');

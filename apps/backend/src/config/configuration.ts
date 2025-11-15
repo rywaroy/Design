@@ -1,8 +1,24 @@
+const resolveBaseUrl = () => {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const sharedBase = process.env.APP_BASE_URL;
+  const devBase = process.env.APP_BASE_URL_DEV;
+  const prodBase = process.env.APP_BASE_URL_PROD;
+  const fallbackBase = 'http://localhost:3000';
+
+  const isDevLike = nodeEnv === 'development' || nodeEnv === 'test';
+
+  if (isDevLike) {
+    return devBase || sharedBase || fallbackBase;
+  }
+
+  return prodBase || sharedBase || fallbackBase;
+};
+
 export default () => ({
   app: {
     port: parseInt(process.env.APP_PORT) || 3000,
     nodeEnv: process.env.NODE_ENV || 'development',
-    baseUrl: process.env.APP_BASE_URL || 'http://localhost:3000',
+    baseUrl: resolveBaseUrl(),
   },
   file: {
     maxSizeMB: parseInt(process.env.FILE_MAX_SIZE_MB) || 10,

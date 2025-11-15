@@ -47,7 +47,20 @@ export const setTokenResolver = (resolver: TokenResolver) => {
   resolveToken = resolver;
 };
 
-const baseURL = (import.meta.env?.VITE_API_BASE as string | undefined) || '/api';
+const resolveBaseURL = () => {
+  const env = import.meta.env;
+  const sharedBase = env?.VITE_API_BASE as string | undefined;
+  const devBase = env?.VITE_API_BASE_DEV as string | undefined;
+  const prodBase = env?.VITE_API_BASE_PROD as string | undefined;
+
+  if (env?.DEV) {
+    return devBase ?? sharedBase ?? '/api';
+  }
+
+  return prodBase ?? sharedBase ?? '/api';
+};
+
+const baseURL = resolveBaseURL();
 const DEFAULT_TIMEOUT = 60000;
 const ERROR_MESSAGE_KEY = 'global-http-error';
 

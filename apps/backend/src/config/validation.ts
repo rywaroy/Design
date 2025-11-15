@@ -6,6 +6,9 @@ export const validationSchema = Joi.object({
     .valid('development', 'production', 'test', 'online')
     .default('development'),
   APP_PORT: Joi.number().default(3000),
+  APP_BASE_URL: Joi.string().uri().default('http://localhost:3000'),
+  APP_BASE_URL_DEV: Joi.string().uri(),
+  APP_BASE_URL_PROD: Joi.string().uri(),
 
   // JWT
   JWT_SECRET: Joi.string().required(),

@@ -1433,14 +1433,19 @@ export class FileController {
 
 ```typescript
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileInfoDto } from './dto/file-info.dto';
 import * as path from 'path';
 
 @Injectable()
 export class FileService {
+    constructor(private readonly configService: ConfigService) {}
+
     processUploadedFile(file: Express.Multer.File): FileInfoDto {
         const fileExtension = path.extname(file.originalname);
-        const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+        const baseUrl =
+            this.configService.get<string>('app.baseUrl') ||
+            'http://localhost:3000';
         const relativePath = file.path.replace(/\\/g, '/');
 
         return {
@@ -1463,7 +1468,7 @@ export class FileService {
 1.  **数据处理**: `processUploadedFile` 方法接收一个 `Express.Multer.File` 类型的对象。
 2.  **信息提取与丰富**:
       * 它使用 `path.extname()` 提取文件扩展名。
-      * 它从环境变量中读取 `APP_BASE_URL` 来构建一个可公开访问的文件 URL。
+      * 它通过 `ConfigService` 读取 `app.baseUrl`（由 `APP_BASE_URL`/`APP_BASE_URL_DEV`/`APP_BASE_URL_PROD` 注入）来构建一个可公开访问的文件 URL。
       * 它将 Windows 风格的路径分隔符 `\` 替换为 `/`，以确保 URL 的通用性。
 3.  **返回 DTO**: 该方法最后返回一个 `FileInfoDto` 对象，其中包含了文件名、原始文件名、MIME 类型、大小、存储路径、扩展名、上传时间和访问 URL。
 
