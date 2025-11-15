@@ -110,12 +110,20 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                   type="text"
                   onClick={() => onMenuClick(item.key)}
                   className={`group relative rounded-full px-4 py-2 text-sm font-medium transition-colors hover:!bg-transparent focus:!bg-transparent active:!bg-transparent ${
-                    isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900'
+                    isActive
+                      ? 'text-gray-900 font-semibold'
+                      : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  <span className="flex items-center gap-2">{item.label}</span>
                   <span
-                    className={`pointer-events-none absolute bottom-0 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-black transition-all ${
+                    className={`flex items-center gap-2 ${
+                      isActive ? 'font-semibold' : 'font-normal'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  <span
+                    className={`pointer-events-none absolute bottom-[-4px] left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-black transition-all ${
                       isActive ? 'w-full' : 'group-hover:w-full'
                     }`}
                   />
