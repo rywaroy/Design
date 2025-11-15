@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      dayjs:
+        specifier: ^1.11.18
+        version: 1.11.18
 
   apps/backend:
     dependencies:
@@ -70,6 +74,9 @@ importers:
       mongoose:
         specifier: ^8.2.3
         version: 8.19.1
+      multer:
+        specifier: ^2.0.2
+        version: 2.0.2
       openai:
         specifier: ^4.73.0
         version: 4.104.0(ws@8.18.3)

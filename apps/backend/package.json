@@ -21,6 +21,7 @@
     "dev": "pnpm start:dev"
   },
   "dependencies": {
+    "@design/shared-types": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
@@ -40,15 +41,15 @@
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.2.3",
+    "multer": "^2.0.2",
+    "openai": "^4.73.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "uuid": "^11.1.0",
     "winston": "^3.13.0",
-    "winston-daily-rotate-file": "^5.0.0",
-    "@design/shared-types": "workspace:*",
-    "openai": "^4.73.0"
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
