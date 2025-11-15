@@ -1,12 +1,13 @@
+const resolveNodeEnv = () => process.env.NODE_ENV?.trim() || 'development';
+
 const resolveBaseUrl = () => {
-  const nodeEnv = process.env.NODE_ENV || 'development';
+  const nodeEnv = resolveNodeEnv();
   const sharedBase = process.env.APP_BASE_URL;
   const devBase = process.env.APP_BASE_URL_DEV;
   const prodBase = process.env.APP_BASE_URL_PROD;
   const fallbackBase = 'http://localhost:3000';
-
   const isDevLike = nodeEnv === 'development' || nodeEnv === 'test';
-
+  console.log(nodeEnv, 'nodeEnv')
   if (isDevLike) {
     return devBase || sharedBase || fallbackBase;
   }
@@ -17,7 +18,7 @@ const resolveBaseUrl = () => {
 export default () => ({
   app: {
     port: parseInt(process.env.APP_PORT) || 3000,
-    nodeEnv: process.env.NODE_ENV || 'development',
+    nodeEnv: resolveNodeEnv(),
     baseUrl: resolveBaseUrl(),
   },
   file: {
