@@ -9,7 +9,10 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter ./apps/** run dev",
     "dev:f": "pnpm --filter design-frontend dev",
-    "dev:b": "pnpm --filter design-backend dev"
+    "dev:b": "pnpm --filter design-backend dev",
+    "build:f": "pnpm --filter design-frontend build",
+    "build:b": "pnpm --filter design-backend build",
+    "start:prod": "pnpm --filter design-backend start:prod"
   },
   "dependencies": {
     "dayjs": "^1.11.18"
