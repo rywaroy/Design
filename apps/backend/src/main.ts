@@ -34,8 +34,11 @@ async function bootstrap() {
   // 会自动将所有路由显示出来
   SwaggerModule.setup(SWAGGER_V1, app, document); // api/swagger = API文档的路径，访问：http://localhost:3000/api/v1/swagger
 
-  // 跨域资源共享
-  app.enableCors();
+  // 跨域资源共享，反射请求来源并允许携带凭证
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
 
   // 拦截处理-错误异常
   app.useGlobalFilters(new HttpExceptionFilter());

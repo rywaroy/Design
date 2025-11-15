@@ -27,7 +27,10 @@ async function bootstrap() {
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, options);
     swagger_1.SwaggerModule.setup(SWAGGER_V1, app, document);
-    app.enableCors();
+    app.enableCors({
+        origin: true,
+        credentials: true,
+    });
     app.useGlobalFilters(new http_exception_filter_1.HttpExceptionFilter());
     app.useGlobalInterceptors(new transformreturn_interceptor_1.TransformReturnInterceptor());
     app.useGlobalInterceptors(new logging_interceptor_1.LoggingInterceptor());
